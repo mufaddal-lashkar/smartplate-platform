@@ -4,19 +4,19 @@ WORKDIR /app
 
 COPY package.json bun.lock ./
 COPY apps/main-service/package.json ./apps/main-service/
-COPY apps/web/package.json ./apps/web/
+COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/contracts/package.json ./packages/contracts/
 
 RUN bun install --frozen-lockfile
 
 COPY packages ./packages
-COPY apps/web ./apps/web
+COPY apps/frontend ./apps/frontend
 
-RUN bun run --cwd apps/web build
+RUN bun run --cwd apps/frontend build
 
 FROM nginx:alpine AS serve
 
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY apps/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/apps/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80

@@ -1,5 +1,5 @@
 {
-	"name": "@smartplate/web",
+	"name": "@smartplate/frontend",
 	"private": true,
 	"type": "module",
 	"scripts": {

@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"workspaces": [
-		"apps/web",
+		"apps/frontend",
 		"apps/main-service",
 		"packages/*"
 	],
@@ -16,7 +16,7 @@
 		"lint": "biome check .",
 		"lint:ci": "biome ci .",
 		"format": "biome check --write .",
-		"type:check": "bun run --cwd apps/web type:check"
+		"type:check": "bun run --cwd apps/frontend type:check"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.6"

@@ -49,7 +49,7 @@ the whole topology come up.
 
 ```
                        ┌─────────────┐
-   browser ───:8080───▶│     web     │  React 19 + Vite + Tailwind + TanStack Query
+   browser ───:8080───▶│  frontend   │  React 19 + Vite + Tailwind + TanStack Query
                        │   (nginx)   │  static build; proxies /api
                        └──────┬──────┘
                               │                        edge network
@@ -90,7 +90,7 @@ handler that forgets a `WHERE` clause returns zero rows, not another restaurant'
 
 ```
 apps/
-  web/            React 19 + Vite SPA          → nginx in production
+  frontend/       React 19 + Vite SPA          → nginx in production
   main-service/   Bun + Elysia + TypeScript    → API + BullMQ worker (same image)
   agent-service/  Python 3.12 + FastAPI        → stateless AI compute
 packages/

@@ -77,13 +77,13 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     networks: [internal]
 
-  web:
+  frontend:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/frontend/Dockerfile
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       - main-service
     networks: [edge]
