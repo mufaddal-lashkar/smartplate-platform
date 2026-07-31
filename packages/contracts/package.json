@@ -1,0 +1,9 @@
+{
+	"name": "@smartplate/contracts",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./envelope": "./src/envelope.ts",
+		"./error-codes": "./src/error-codes.ts"
+	}
+}

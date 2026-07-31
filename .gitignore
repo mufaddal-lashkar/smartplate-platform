@@ -1,0 +1,36 @@
+# Local-only: design docs, plans, and project skills
+docs/
+.claude/
+
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.egg-info/
+
+# Build output
+dist/
+build/
+.vite/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test / coverage
+coverage/
+.pytest_cache/
+.ruff_cache/

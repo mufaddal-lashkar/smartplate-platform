@@ -1,0 +1,98 @@
+name: smartplate
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smartplate
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartplate_dev}
+      POSTGRES_DB: smartplate
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartplate -d smartplate"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [internal]
+
+  main-service:
+    build:
+      context: .
+      dockerfile: apps/main-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://smartplate:${POSTGRES_PASSWORD:-smartplate_dev}@postgres:5432/smartplate
+      REDIS_URL: redis://redis:6379
+      AGENT_SERVICE_URL: http://agent-service:8000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [internal, edge]
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/main-service/Dockerfile
+    restart: unless-stopped
+    command: ["bun", "run", "apps/main-service/src/worker.ts"]
+    environment:
+      DATABASE_URL: postgres://smartplate:${POSTGRES_PASSWORD:-smartplate_dev}@postgres:5432/smartplate
+      REDIS_URL: redis://redis:6379
+      AGENT_SERVICE_URL: http://agent-service:8000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [internal]
+
+  agent-service:
+    build:
+      context: ./apps/agent-service
+    restart: unless-stopped
+    environment:
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    networks: [internal]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - main-service
+    networks: [edge]
+
+networks:
+  edge:
+  # Deliberately not `internal: true` — agent-service needs egress to Gemini.
+  internal:
+
+volumes:
+  postgres_data:
+  redis_data:

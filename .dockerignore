@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+
+.git
+.gitignore
+.claude
+docs
+
+**/.env
+**/.env.local
+
+README.md
+CLAUDE.md
+docker-compose*.yml

@@ -1,0 +1,17 @@
+{
+	"name": "@smartplate/main-service",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"serve": "bun run src/index.ts",
+		"worker": "bun run src/worker.ts",
+		"dev": "bun --watch src/index.ts"
+	},
+	"dependencies": {
+		"@smartplate/contracts": "workspace:*",
+		"bullmq": "6.0.3",
+		"dayjs": "1.11.21",
+		"elysia": "1.4.29",
+		"ioredis": "6.0.0"
+	}
+}

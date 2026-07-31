@@ -1,0 +1,32 @@
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  main-service:
+    command: ["bun", "--watch", "apps/main-service/src/index.ts"]
+    volumes:
+      - ./apps/main-service/src:/app/apps/main-service/src
+      - ./packages:/app/packages
+
+  worker:
+    command: ["bun", "--watch", "apps/main-service/src/worker.ts"]
+    volumes:
+      - ./apps/main-service/src:/app/apps/main-service/src
+      - ./packages:/app/packages
+
+  agent-service:
+    command:
+      ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./apps/agent-service/src:/app/src
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: build
+    command: ["bun", "run", "--cwd", "apps/web", "dev", "--host", "0.0.0.0", "--port", "80"]
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./packages:/app/packages
+    networks: [edge, internal]
