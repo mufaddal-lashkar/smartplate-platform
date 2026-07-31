@@ -8,18 +8,8 @@
         "@biomejs/biome": "2.5.6",
       },
     },
-    "apps/main-service": {
-      "name": "@smartplate/main-service",
-      "dependencies": {
-        "@smartplate/contracts": "workspace:*",
-        "bullmq": "6.0.3",
-        "dayjs": "1.11.21",
-        "elysia": "1.4.29",
-        "ioredis": "6.0.0",
-      },
-    },
-    "apps/web": {
-      "name": "@smartplate/web",
+    "apps/frontend": {
+      "name": "@smartplate/frontend",
       "dependencies": {
         "@smartplate/contracts": "workspace:*",
         "@tanstack/react-query": "5.101.4",
@@ -35,6 +25,16 @@
         "tailwindcss": "4.3.3",
         "typescript": "5.9.3",
         "vite": "8.2.0",
+      },
+    },
+    "apps/main-service": {
+      "name": "@smartplate/main-service",
+      "dependencies": {
+        "@smartplate/contracts": "workspace:*",
+        "bullmq": "6.0.3",
+        "dayjs": "1.11.21",
+        "elysia": "1.4.29",
+        "ioredis": "6.0.0",
       },
     },
     "packages/contracts": {
@@ -132,9 +132,9 @@
 
     "@smartplate/contracts": ["@smartplate/contracts@workspace:packages/contracts"],
 
-    "@smartplate/main-service": ["@smartplate/main-service@workspace:apps/main-service"],
+    "@smartplate/frontend": ["@smartplate/frontend@workspace:apps/frontend"],
 
-    "@smartplate/web": ["@smartplate/web@workspace:apps/web"],
+    "@smartplate/main-service": ["@smartplate/main-service@workspace:apps/main-service"],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.3.3", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.24.1", "jiti": "^2.7.0", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.3" } }, "sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg=="],
 

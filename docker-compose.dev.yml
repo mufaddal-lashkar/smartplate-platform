@@ -19,14 +19,14 @@ services:
     volumes:
       - ./apps/agent-service/src:/app/src
 
-  web:
+  frontend:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/frontend/Dockerfile
       target: build
-    command: ["bun", "run", "--cwd", "apps/web", "dev", "--host", "0.0.0.0", "--port", "80"]
+    command: ["bun", "run", "--cwd", "apps/frontend", "dev", "--host", "0.0.0.0", "--port", "80"]
     volumes:
-      - ./apps/web/src:/app/apps/web/src
-      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./apps/frontend/src:/app/apps/frontend/src
+      - ./apps/frontend/index.html:/app/apps/frontend/index.html
       - ./packages:/app/packages
     networks: [edge, internal]
