@@ -2,8 +2,13 @@ import type { MeResponse, TenantTypeValue } from "@smartplate/contracts/auth"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { Link, Navigate, useNavigate } from "react-router"
+import { Button } from "../components/ui/button"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import { ApiClientError, apiPost, fieldError } from "../lib/api-client"
 import { queryKeys } from "../lib/query-keys"
+import { cn } from "../lib/utils"
+import { AuthLayout } from "./auth-layout"
 import { homePathFor, useSession } from "./use-session"
 
 const messageFor = (error: Error): string => {
@@ -14,8 +19,8 @@ const messageFor = (error: Error): string => {
 }
 
 const TENANT_CHOICES: { value: TenantTypeValue; title: string; blurb: string }[] = [
-	{ value: "restaurant", title: "Restaurant", blurb: "Track stock, cut waste, recover cost." },
-	{ value: "ngo", title: "NGO", blurb: "Collect surplus food from nearby kitchens." },
+	{ value: "restaurant", title: "Restaurant", blurb: "Cut waste, recover cost" },
+	{ value: "ngo", title: "NGO", blurb: "Collect surplus nearby" },
 ]
 
 export const RegisterPage = () => {
@@ -46,24 +51,33 @@ export const RegisterPage = () => {
 	}
 
 	return (
-		<main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
-			<h1 className="text-xl font-semibold tracking-tight">Create your SmartPlate account</h1>
-
-			<form onSubmit={submit} className="mt-8 space-y-4">
+		<AuthLayout
+			title="Create your account"
+			subtitle="Two minutes to set up. No card needed."
+			footer={
+				<>
+					Already have an account?{" "}
+					<Link to="/login" className="font-medium text-primary hover:underline">
+						Sign in
+					</Link>
+				</>
+			}
+		>
+			<form onSubmit={submit} className="space-y-5">
 				<fieldset className="space-y-2">
 					<legend className="text-sm font-medium">I am registering as</legend>
-					<div className="grid grid-cols-2 gap-2">
+					<div className="grid grid-cols-2 gap-3 pt-1">
 						{TENANT_CHOICES.map((choice) => (
 							<button
 								key={choice.value}
 								type="button"
 								onClick={() => setTenantType(choice.value)}
 								aria-pressed={tenantType === choice.value}
-								className={
-									tenantType === choice.value
-										? "rounded-md border-2 border-accent bg-card p-3 text-left"
-										: "rounded-md border border-border bg-card p-3 text-left"
-								}
+								className={cn(
+									"rounded-lg border p-3 text-left transition-colors",
+									"focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+									tenantType === choice.value ? "border-primary bg-secondary" : "hover:bg-muted",
+								)}
 							>
 								<span className="block text-sm font-medium">{choice.title}</span>
 								<span className="block text-xs text-muted-foreground">{choice.blurb}</span>
@@ -72,96 +86,79 @@ export const RegisterPage = () => {
 					</div>
 				</fieldset>
 
-				<div className="space-y-1">
-					<label htmlFor="tenantName" className="text-sm font-medium">
+				<div className="space-y-2">
+					<Label htmlFor="tenantName">
 						{tenantType === "restaurant" ? "Restaurant name" : "Organisation name"}
-					</label>
-					<input
+					</Label>
+					<Input
 						id="tenantName"
 						required
 						value={tenantName}
 						onChange={(e) => setTenantName(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+						aria-invalid={fieldError(mutation.error, "tenantName") !== ""}
 					/>
 					{fieldError(mutation.error, "tenantName") !== "" && (
 						<p className="text-sm text-critical">{fieldError(mutation.error, "tenantName")}</p>
 					)}
 				</div>
 
-				<div className="space-y-1">
-					<label htmlFor="name" className="text-sm font-medium">
-						Your name
-					</label>
-					<input
+				<div className="space-y-2">
+					<Label htmlFor="name">Your name</Label>
+					<Input
 						id="name"
 						required
 						value={name}
 						onChange={(e) => setName(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+						aria-invalid={fieldError(mutation.error, "name") !== ""}
 					/>
 					{fieldError(mutation.error, "name") !== "" && (
 						<p className="text-sm text-critical">{fieldError(mutation.error, "name")}</p>
 					)}
 				</div>
 
-				<div className="space-y-1">
-					<label htmlFor="email" className="text-sm font-medium">
-						Email
-					</label>
-					<input
+				<div className="space-y-2">
+					<Label htmlFor="email">Email</Label>
+					<Input
 						id="email"
 						type="email"
 						autoComplete="email"
 						required
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+						aria-invalid={fieldError(mutation.error, "email") !== ""}
 					/>
 					{fieldError(mutation.error, "email") !== "" && (
 						<p className="text-sm text-critical">{fieldError(mutation.error, "email")}</p>
 					)}
 				</div>
 
-				<div className="space-y-1">
-					<label htmlFor="password" className="text-sm font-medium">
-						Password
-					</label>
-					<input
+				<div className="space-y-2">
+					<Label htmlFor="password">Password</Label>
+					<Input
 						id="password"
 						type="password"
 						autoComplete="new-password"
 						required
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+						aria-invalid={fieldError(mutation.error, "password") !== ""}
 					/>
-					<p className="text-xs text-subtle-foreground">At least 8 characters.</p>
+					<p className="text-xs text-muted-foreground">At least 8 characters.</p>
 					{fieldError(mutation.error, "password") !== "" && (
 						<p className="text-sm text-critical">{fieldError(mutation.error, "password")}</p>
 					)}
 				</div>
 
 				{mutation.error != null && (
-					<p role="alert" className="text-sm text-critical">
+					<p role="alert" className="rounded-lg bg-critical/10 px-3 py-2.5 text-sm text-critical">
 						{messageFor(mutation.error)}
 					</p>
 				)}
 
-				<button
-					type="submit"
-					disabled={mutation.isPending}
-					className="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
-				>
-					{mutation.isPending ? "Creating…" : "Create account"}
-				</button>
+				<Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
+					{mutation.isPending ? "Creating account…" : "Create account"}
+				</Button>
 			</form>
-
-			<p className="mt-6 text-sm text-muted-foreground">
-				Already have an account?{" "}
-				<Link to="/login" className="font-medium text-accent underline">
-					Sign in
-				</Link>
-			</p>
-		</main>
+		</AuthLayout>
 	)
 }

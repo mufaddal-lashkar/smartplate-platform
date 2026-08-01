@@ -13,12 +13,41 @@ export class ApiClientError extends Error {
 	}
 }
 
-const request = async <T>(path: string, init: RequestInit): Promise<T> => {
-	const response = await fetch(`/api${path}`, {
+const REFRESH_PATH = "/v1/auth/refresh"
+
+let inFlightRefresh: Promise<boolean> | null = null
+
+const refreshSession = async (): Promise<boolean> => {
+	const response = await fetch(`/api${REFRESH_PATH}`, {
+		method: "POST",
+		credentials: "include",
+		headers: { "content-type": "application/json" },
+		body: "{}",
+	})
+	return response.ok
+}
+
+const refreshOnce = (): Promise<boolean> => {
+	inFlightRefresh ??= refreshSession().finally(() => {
+		inFlightRefresh = null
+	})
+	return inFlightRefresh
+}
+
+const send = (path: string, init: RequestInit): Promise<Response> =>
+	fetch(`/api${path}`, {
 		...init,
 		credentials: "include",
 		headers: { "content-type": "application/json", ...init.headers },
 	})
+
+const request = async <T>(path: string, init: RequestInit): Promise<T> => {
+	let response = await send(path, init)
+
+	if (response.status === 401 && path !== REFRESH_PATH) {
+		const refreshed = await refreshOnce()
+		if (refreshed) response = await send(path, init)
+	}
 
 	const body: ApiResponse<T> = await response.json()
 
