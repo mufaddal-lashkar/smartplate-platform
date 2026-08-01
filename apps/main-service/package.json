@@ -8,10 +8,14 @@
 		"dev": "bun --watch src/index.ts"
 	},
 	"dependencies": {
+		"@elysiajs/jwt": "1.4.2",
 		"@smartplate/contracts": "workspace:*",
 		"bullmq": "6.0.3",
 		"dayjs": "1.11.21",
+		"drizzle-orm": "0.45.2",
 		"elysia": "1.4.29",
-		"ioredis": "6.0.0"
+		"ioredis": "6.0.0",
+		"postgres": "3.4.9",
+		"zod": "4.4.3"
 	}
 }

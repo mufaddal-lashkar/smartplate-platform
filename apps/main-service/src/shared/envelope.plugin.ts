@@ -1,6 +1,25 @@
 import { statusForCode } from "@smartplate/contracts/error-codes"
 import { Elysia } from "elysia"
+import { ZodError } from "zod"
 import { ApiError } from "./api-error"
+
+const toApiError = (error: Error): ApiError => {
+	if (error instanceof ApiError) return error
+
+	if (error instanceof ZodError) {
+		return new ApiError(
+			"VALIDATION_FAILED",
+			"Some fields need attention.",
+			error.issues.map((issue) => ({
+				field: issue.path.join("."),
+				code: issue.code,
+				message: issue.message,
+			})),
+		)
+	}
+
+	return new ApiError("INTERNAL", "Something went wrong on our end.")
+}
 
 export const envelopePlugin = new Elysia({ name: "envelope" })
 	.derive({ as: "global" }, ({ request }) => ({
@@ -16,19 +35,15 @@ export const envelopePlugin = new Elysia({ name: "envelope" })
 		)
 	})
 	.onError({ as: "global" }, ({ error, requestId, set }) => {
-		const known = error instanceof ApiError
-		const status = known ? statusForCode(error.code) : 500
+		const apiError = toApiError(error)
+		const status = statusForCode(apiError.code)
 
 		set.status = status
 
 		return Response.json(
 			{
 				success: false,
-				error: {
-					code: known ? error.code : "INTERNAL",
-					message: known ? error.message : "Something went wrong on our end.",
-					details: known ? error.details : [],
-				},
+				error: { code: apiError.code, message: apiError.message, details: apiError.details },
 				meta: { requestId, nextCursor: "" },
 			},
 			{ status, headers: { "x-request-id": requestId } },
