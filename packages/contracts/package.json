@@ -4,6 +4,10 @@
 	"type": "module",
 	"exports": {
 		"./envelope": "./src/envelope.ts",
-		"./error-codes": "./src/error-codes.ts"
+		"./error-codes": "./src/error-codes.ts",
+		"./auth": "./src/auth.ts"
+	},
+	"dependencies": {
+		"zod": "4.4.3"
 	}
 }

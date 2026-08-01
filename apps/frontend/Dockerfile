@@ -6,6 +6,7 @@ COPY package.json bun.lock ./
 COPY apps/main-service/package.json ./apps/main-service/
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/contracts/package.json ./packages/contracts/
+COPY db/package.json ./db/
 
 RUN bun install --frozen-lockfile
 

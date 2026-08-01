@@ -30,6 +30,27 @@ services:
       retries: 12
     networks: [internal]
 
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/main-service/Dockerfile
+    command:
+      [
+        "sh",
+        "-c",
+        "bunx drizzle-kit migrate && DATABASE_URL=$$APP_DATABASE_URL bun run db/seed/index.ts",
+      ]
+    restart: "no"
+    environment:
+      DATABASE_URL: postgres://smartplate:${POSTGRES_PASSWORD:-smartplate_dev}@postgres:5432/smartplate
+      APP_DATABASE_URL: postgres://smartplate_app:${APP_DB_PASSWORD:-smartplate_app_dev}@postgres:5432/smartplate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [internal]
+
   main-service:
     build:
       context: .
@@ -37,7 +58,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
-      DATABASE_URL: postgres://smartplate:${POSTGRES_PASSWORD:-smartplate_dev}@postgres:5432/smartplate
+      DATABASE_URL: postgres://smartplate_app:${APP_DB_PASSWORD:-smartplate_app_dev}@postgres:5432/smartplate
       REDIS_URL: redis://redis:6379
       AGENT_SERVICE_URL: http://agent-service:8000
       SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
@@ -47,6 +68,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks: [internal, edge]
 
   worker:
@@ -56,7 +79,7 @@ services:
     restart: unless-stopped
     command: ["bun", "run", "apps/main-service/src/worker.ts"]
     environment:
-      DATABASE_URL: postgres://smartplate:${POSTGRES_PASSWORD:-smartplate_dev}@postgres:5432/smartplate
+      DATABASE_URL: postgres://smartplate_app:${APP_DB_PASSWORD:-smartplate_app_dev}@postgres:5432/smartplate
       REDIS_URL: redis://redis:6379
       AGENT_SERVICE_URL: http://agent-service:8000
       SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
@@ -65,6 +88,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks: [internal]
 
   agent-service:

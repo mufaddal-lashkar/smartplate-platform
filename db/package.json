@@ -1,0 +1,14 @@
+{
+	"name": "@smartplate/db",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"seed": "bun run seed/index.ts"
+	},
+	"dependencies": {
+		"@smartplate/contracts": "workspace:*",
+		"dayjs": "1.11.21",
+		"drizzle-orm": "0.45.2",
+		"postgres": "3.4.9"
+	}
+}

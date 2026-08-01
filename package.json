@@ -5,7 +5,8 @@
 	"workspaces": [
 		"apps/frontend",
 		"apps/main-service",
-		"packages/*"
+		"packages/*",
+		"db"
 	],
 	"scripts": {
 		"up": "docker compose up --build",
@@ -16,9 +17,15 @@
 		"lint": "biome check .",
 		"lint:ci": "biome ci .",
 		"format": "biome check --write .",
-		"type:check": "bun run --cwd apps/frontend type:check"
+		"type:check": "bun run --cwd apps/frontend type:check",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate",
+		"db:push": "drizzle-kit push",
+		"seed": "docker compose exec -T main-service sh -c \"cd /app && bun run db/seed/index.ts\"",
+		"test": "docker compose exec -T main-service sh -c \"cd /app && bun test apps/main-service/tests\""
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.6"
+		"@biomejs/biome": "2.5.6",
+		"drizzle-kit": "0.31.10"
 	}
 }

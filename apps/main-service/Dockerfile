@@ -6,11 +6,14 @@ COPY package.json bun.lock ./
 COPY apps/main-service/package.json ./apps/main-service/
 COPY apps/frontend/package.json ./apps/frontend/
 COPY packages/contracts/package.json ./packages/contracts/
+COPY db/package.json ./db/
 
 RUN bun install --frozen-lockfile
 
 COPY packages ./packages
 COPY apps/main-service ./apps/main-service
+COPY drizzle.config.ts ./
+COPY db ./db
 
 ENV PORT=3000
 EXPOSE 3000

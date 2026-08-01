@@ -1,21 +1,64 @@
-# docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up      (or: bun run dev)
+#
+# Everything editable is bind-mounted, so no code, test, migration, seed or
+# config change ever needs an image rebuild. The ONLY change that still does is
+# adding a dependency to a package.json.
+#
+# The bare `/app/**/node_modules` entries are anonymous volumes that MASK the
+# host's node_modules, which hold Windows binaries that cannot run in the Linux
+# container.
+#
+# Postgres and Redis are published on NON-DEFAULT host ports so native tooling
+# cannot collide with a Postgres already installed on the host.
 
 services:
+  postgres:
+    ports:
+      - "5433:5432"
+
+  redis:
+    ports:
+      - "6380:6379"
+
+  # drizzle.config.ts points at apps/main-service/src/db/schema.ts, so schema
+  # changes must be visible here too, not just the migration files.
+  migrate:
+    volumes:
+      - ./db:/app/db
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+      - ./apps/main-service/src:/app/apps/main-service/src
+      - /app/db/node_modules
+      - /app/apps/main-service/node_modules
+
   main-service:
     command: ["bun", "--watch", "apps/main-service/src/index.ts"]
     volumes:
       - ./apps/main-service/src:/app/apps/main-service/src
+      - ./apps/main-service/tests:/app/apps/main-service/tests
       - ./packages:/app/packages
+      - ./db:/app/db
+      - ./drizzle.config.ts:/app/drizzle.config.ts
+      - /app/apps/main-service/node_modules
+      - /app/packages/contracts/node_modules
+      - /app/db/node_modules
 
   worker:
     command: ["bun", "--watch", "apps/main-service/src/worker.ts"]
     volumes:
       - ./apps/main-service/src:/app/apps/main-service/src
       - ./packages:/app/packages
+      - ./db:/app/db
+      - /app/apps/main-service/node_modules
+      - /app/packages/contracts/node_modules
+      - /app/db/node_modules
 
+  # Published in dev only, so FastAPI's Swagger UI is reachable at
+  # http://localhost:8001/docs while iterating on schemas and prompts.
   agent-service:
     command:
       ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8001:8000"
     volumes:
       - ./apps/agent-service/src:/app/src
 
@@ -28,5 +71,9 @@ services:
     volumes:
       - ./apps/frontend/src:/app/apps/frontend/src
       - ./apps/frontend/index.html:/app/apps/frontend/index.html
+      - ./apps/frontend/vite.config.ts:/app/apps/frontend/vite.config.ts
+      - ./apps/frontend/tsconfig.json:/app/apps/frontend/tsconfig.json
       - ./packages:/app/packages
+      - /app/apps/frontend/node_modules
+      - /app/packages/contracts/node_modules
     networks: [edge, internal]
