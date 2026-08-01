@@ -2,8 +2,12 @@ import type { MeResponse } from "@smartplate/contracts/auth"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { type FormEvent, useState } from "react"
 import { Link, Navigate, useNavigate } from "react-router"
+import { Button } from "../components/ui/button"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
 import { ApiClientError, apiPost, fieldError } from "../lib/api-client"
 import { queryKeys } from "../lib/query-keys"
+import { AuthLayout } from "./auth-layout"
 import { homePathFor, useSession } from "./use-session"
 
 const messageFor = (error: Error): string => {
@@ -37,65 +41,58 @@ export const LoginPage = () => {
 	}
 
 	return (
-		<main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-			<h1 className="text-xl font-semibold tracking-tight">Sign in to SmartPlate</h1>
-			<p className="mt-1 text-sm text-muted-foreground">Recover more, waste less.</p>
-
-			<form onSubmit={submit} className="mt-8 space-y-4">
-				<div className="space-y-1">
-					<label htmlFor="email" className="text-sm font-medium">
-						Email
-					</label>
-					<input
+		<AuthLayout
+			title="Sign in"
+			subtitle="Pick up where your kitchen left off."
+			footer={
+				<>
+					New to SmartPlate?{" "}
+					<Link to="/register" className="font-medium text-primary hover:underline">
+						Create an account
+					</Link>
+				</>
+			}
+		>
+			<form onSubmit={submit} className="space-y-5">
+				<div className="space-y-2">
+					<Label htmlFor="email">Email</Label>
+					<Input
 						id="email"
 						type="email"
 						autoComplete="email"
+						placeholder="you@restaurant.com"
 						required
 						value={email}
 						onChange={(e) => setEmail(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
+						aria-invalid={fieldError(mutation.error, "email") !== ""}
 					/>
 					{fieldError(mutation.error, "email") !== "" && (
 						<p className="text-sm text-critical">{fieldError(mutation.error, "email")}</p>
 					)}
 				</div>
 
-				<div className="space-y-1">
-					<label htmlFor="password" className="text-sm font-medium">
-						Password
-					</label>
-					<input
+				<div className="space-y-2">
+					<Label htmlFor="password">Password</Label>
+					<Input
 						id="password"
 						type="password"
 						autoComplete="current-password"
 						required
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
-						className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
 					/>
 				</div>
 
 				{mutation.error != null && (
-					<p role="alert" className="text-sm text-critical">
+					<p role="alert" className="rounded-lg bg-critical/10 px-3 py-2.5 text-sm text-critical">
 						{messageFor(mutation.error)}
 					</p>
 				)}
 
-				<button
-					type="submit"
-					disabled={mutation.isPending}
-					className="w-full rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:opacity-60"
-				>
+				<Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
 					{mutation.isPending ? "Signing in…" : "Sign in"}
-				</button>
+				</Button>
 			</form>
-
-			<p className="mt-6 text-sm text-muted-foreground">
-				New here?{" "}
-				<Link to="/register" className="font-medium text-accent underline">
-					Create an account
-				</Link>
-			</p>
-		</main>
+		</AuthLayout>
 	)
 }
