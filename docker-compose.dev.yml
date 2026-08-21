@@ -61,6 +61,8 @@ services:
       - "8001:8000"
     volumes:
       - ./apps/agent-service/src:/app/src
+      - ./apps/agent-service/tests:/app/tests
+      - ./apps/agent-service/pyproject.toml:/app/pyproject.toml
 
   frontend:
     build:

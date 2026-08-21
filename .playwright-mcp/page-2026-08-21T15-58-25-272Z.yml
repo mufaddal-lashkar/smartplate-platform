@@ -1,0 +1,22 @@
+- generic [ref=f22e3]:
+  - generic [ref=f22e6]:
+    - img "SmartPlate" [ref=f22e7]
+    - heading "SmartPlate AI" [level=1] [ref=f22e12]
+    - paragraph [ref=f22e13]: Every plate accounted for. Reuse it, sell it, share it — before it ever becomes waste.
+  - main [ref=f22e14]:
+    - generic [ref=f22e15]:
+      - heading "Sign in" [level=1] [ref=f22e16]
+      - paragraph [ref=f22e17]: Pick up where your kitchen left off.
+      - generic [ref=f22e19]:
+        - generic [ref=f22e20]:
+          - generic [ref=f22e21]: Email
+          - textbox "Email" [ref=f22e22]:
+            - /placeholder: you@restaurant.com
+        - generic [ref=f22e23]:
+          - generic [ref=f22e24]: Password
+          - textbox "Password" [ref=f22e25]
+        - button "Sign in" [ref=f22e26]
+      - generic [ref=f22e27]:
+        - text: New to SmartPlate?
+        - link "Create an account" [ref=f22e28] [cursor=pointer]:
+          - /url: /register

@@ -1,0 +1,101 @@
+- generic [ref=f22e29]:
+  - complementary [ref=f22e30]:
+    - generic [ref=f22e32]:
+      - generic [ref=f22e33]:
+        - img "SmartPlate" [ref=f22e34]
+        - generic [ref=f22e39]: SmartPlate
+      - navigation "Main" [ref=f22e40]:
+        - generic [ref=f22e41]:
+          - paragraph [ref=f22e42]: Operations
+          - link "Dashboard" [ref=f22e43] [cursor=pointer]:
+            - /url: /app
+          - link "Inventory" [ref=f22e47] [cursor=pointer]:
+            - /url: /app/inventory
+          - link "Kitchen" [ref=f22e53] [cursor=pointer]:
+            - /url: /app/kitchen
+          - link "Leftovers" [ref=f22e57] [cursor=pointer]:
+            - /url: /app/leftovers
+        - generic [ref=f22e65]:
+          - link "My Listings" [ref=f22e66] [cursor=pointer]:
+            - /url: /app/listings
+          - link "Browse Surplus" [ref=f22e71] [cursor=pointer]:
+            - /url: /app/market
+        - generic [ref=f22e79]:
+          - link "Analytics" [ref=f22e80] [cursor=pointer]:
+            - /url: /app/analytics
+          - link "Reports" [ref=f22e84] [cursor=pointer]:
+            - /url: /app/reports
+        - generic [ref=f22e89]:
+          - paragraph [ref=f22e90]: Settings
+          - link "Catalog" [ref=f22e91] [cursor=pointer]:
+            - /url: /app/catalog
+          - link "Team" [ref=f22e98] [cursor=pointer]:
+            - /url: /app/team
+          - link "Settings" [ref=f22e105] [cursor=pointer]:
+            - /url: /app/settings
+      - generic [ref=f22e110]:
+        - button "Collapse navigation" [expanded] [ref=f22e111]:
+          - generic [ref=f22e115]: Collapse
+        - button "Account menu for Asha Menon" [ref=f22e116]:
+          - generic [ref=f22e117]: AM
+          - generic [ref=f22e118]:
+            - generic [ref=f22e119]: Asha Menon
+            - generic [ref=f22e120]: owner
+  - main [ref=f22e122]:
+    - generic [ref=f22e124]:
+      - generic [ref=f22e125]:
+        - heading "Good evening, Asha" [level=1] [ref=f22e126]
+        - paragraph [ref=f22e127]: Spice Route · last 30 days
+      - generic [ref=f22e128]:
+        - generic [ref=f22e130]:
+          - generic [ref=f22e131]:
+            - paragraph [ref=f22e134]: 19 leftovers waiting on a decision
+            - link "Close the day" [ref=f22e136] [cursor=pointer]:
+              - /url: /app/leftovers
+          - generic [ref=f22e137]:
+            - generic [ref=f22e138]:
+              - generic [ref=f22e139]:
+                - generic [ref=f22e140]: Recovery rate
+                - generic [ref=f22e149]: 67%
+              - generic [ref=f22e150]:
+                - paragraph [ref=f22e151]: Higher is better
+                - paragraph [ref=f22e152]: Share of leftovers reused, sold or donated
+            - generic [ref=f22e153]:
+              - generic [ref=f22e154]:
+                - generic [ref=f22e155]: Surplus rate
+                - generic [ref=f22e161]: 18%
+              - generic [ref=f22e162]:
+                - paragraph [ref=f22e163]: Lower is better
+                - paragraph [ref=f22e164]: Share of everything prepared that was left over
+            - generic [ref=f22e165]:
+              - generic [ref=f22e166]:
+                - generic [ref=f22e167]: Waste rate
+                - generic [ref=f22e172]: 5%
+              - generic [ref=f22e173]:
+                - paragraph [ref=f22e174]: Lower is better
+                - paragraph [ref=f22e175]: Share of everything prepared that reached the bin
+          - generic [ref=f22e176]:
+            - generic [ref=f22e177]:
+              - generic [ref=f22e178]:
+                - generic [ref=f22e179]: Value recovered
+                - generic [ref=f22e184]: ₹1,22,541
+              - paragraph [ref=f22e186]: Surplus sales and reuse in the kitchen. Donated food counts as impact below, never as revenue.
+            - generic [ref=f22e187]:
+              - generic [ref=f22e188]:
+                - generic [ref=f22e189]: Loss avoided
+                - generic [ref=f22e194]: ₹1,70,140
+              - paragraph [ref=f22e196]: Food cost that would have been written off had none of it been recovered.
+            - generic [ref=f22e197]:
+              - generic [ref=f22e198]:
+                - generic [ref=f22e199]: Food diverted
+                - generic [ref=f22e204]: 582.5 kg
+              - paragraph [ref=f22e206]: Reused, sold and donated together — every kilogram kept out of the bin.
+        - generic [ref=f22e207]:
+          - generic [ref=f22e209]:
+            - generic [ref=f22e210]:
+              - generic [ref=f22e211]: Activity
+              - generic [ref=f22e212]: Listings, escalations and jobs as they happen.
+            - generic [ref=f22e213]: Live
+          - generic [ref=f22e215]:
+            - paragraph [ref=f22e218]: Nothing has happened yet
+            - paragraph [ref=f22e219]: Confirm a close of day and the listings, escalations and background jobs it sets off show up here as they happen.
