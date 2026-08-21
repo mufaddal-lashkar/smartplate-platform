@@ -1,6 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+from src.api.reuse_estimate import router as reuse_estimate_router
 from src.config import settings
+from src.validation.bounds import BoundsViolation
 
 app = FastAPI(
     title="SmartPlate agent-service",
@@ -11,6 +14,20 @@ app = FastAPI(
         "Calls Gemini and nothing else."
     ),
 )
+
+app.include_router(reuse_estimate_router)
+
+
+@app.exception_handler(BoundsViolation)
+async def bounds_violation_handler(_: Request, exc: BoundsViolation) -> JSONResponse:
+    return JSONResponse(
+        status_code=422,
+        content={
+            "code": "BOUNDS_VIOLATION",
+            "message": exc.message,
+            "request_id": exc.request_id,
+        },
+    )
 
 
 @app.get("/health")
