@@ -4,7 +4,7 @@ import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 
 export const PlaceholderPage = ({ title, phase }: { title: string; phase: string }) => (
-	<section className="mx-auto max-w-5xl">
+	<section className="w-full">
 		<header className="flex items-center gap-3">
 			<h1 className="font-display text-2xl font-semibold tracking-tight">{title}</h1>
 			<Badge variant="secondary">{phase}</Badge>
