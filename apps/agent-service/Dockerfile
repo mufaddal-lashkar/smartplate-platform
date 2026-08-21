@@ -5,9 +5,10 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml ./
-RUN uv pip install --system --no-cache -r pyproject.toml
+RUN uv pip install --system --no-cache -r pyproject.toml --group dev
 
 COPY src ./src
+COPY tests ./tests
 
 EXPOSE 8000
 

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Navigate, Outlet } from "react-router"
 import { useSession } from "../auth/use-session"
 import { Skeleton } from "../components/ui/skeleton"
+import { useEvents } from "../hooks/use-events"
 import { cn } from "../lib/utils"
 import { Sidebar } from "./sidebar"
 
@@ -9,6 +10,7 @@ const COLLAPSE_KEY = "smartplate.sidebar.collapsed"
 
 export const AppShell = ({ expect }: { expect: "restaurant" | "ngo" | "admin" }) => {
 	const { session, isPending } = useSession()
+	useEvents()
 	const [collapsed, setCollapsed] = useState(
 		() => window.localStorage.getItem(COLLAPSE_KEY) === "true",
 	)
@@ -23,7 +25,7 @@ export const AppShell = ({ expect }: { expect: "restaurant" | "ngo" | "admin" })
 	if (isPending) {
 		return (
 			<div className="flex min-h-screen">
-				<div className="hidden w-64 border-r border-sidebar-border bg-sidebar p-4 md:block">
+				<div className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar p-4 md:block">
 					<Skeleton className="h-8 w-36" />
 					<div className="mt-6 space-y-2">
 						<Skeleton className="h-9 w-full" />
@@ -31,7 +33,7 @@ export const AppShell = ({ expect }: { expect: "restaurant" | "ngo" | "admin" })
 						<Skeleton className="h-9 w-full" />
 					</div>
 				</div>
-				<div className="flex-1 p-8">
+				<div className="min-w-0 flex-1 p-8">
 					<Skeleton className="h-8 w-48" />
 					<Skeleton className="mt-6 h-40 w-full" />
 				</div>
@@ -57,11 +59,9 @@ export const AppShell = ({ expect }: { expect: "restaurant" | "ngo" | "admin" })
 				</div>
 			</aside>
 
-			<div className="flex min-w-0 flex-1 flex-col">
-				<main className="flex-1 px-6 py-8 lg:px-10">
-					<Outlet />
-				</main>
-			</div>
+			<main className="min-w-0 flex-1 overflow-x-hidden px-6 py-8 lg:px-10">
+				<Outlet />
+			</main>
 		</div>
 	)
 }

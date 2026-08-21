@@ -2,7 +2,10 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { LoginPage } from "./auth/login-page"
 import { RegisterPage } from "./auth/register-page"
 import { homePathFor, useSession } from "./auth/use-session"
+import { CatalogPage } from "./pages/catalog-page"
 import { DashboardPage } from "./pages/dashboard-page"
+import { LeftoversPage } from "./pages/leftovers-page"
+import { ListingsPage } from "./pages/listings-page"
 import { NotFoundPage, PlaceholderPage } from "./pages/placeholder-page"
 import { AppShell } from "./shell/app-shell"
 
@@ -31,12 +34,12 @@ export const router = createBrowserRouter([
 			{ index: true, element: <DashboardPage /> },
 			{ path: "inventory", element: <PlaceholderPage title="Inventory" phase="P1" /> },
 			{ path: "kitchen", element: <PlaceholderPage title="Kitchen" phase="P2" /> },
-			{ path: "leftovers", element: <PlaceholderPage title="Close of day" phase="P3" /> },
-			{ path: "listings", element: <PlaceholderPage title="My listings" phase="P4" /> },
+			{ path: "leftovers", element: <LeftoversPage /> },
+			{ path: "listings", element: <ListingsPage /> },
 			{ path: "market", element: <PlaceholderPage title="Browse surplus" phase="P4" /> },
 			{ path: "analytics", element: <PlaceholderPage title="Analytics" phase="P7" /> },
 			{ path: "reports", element: <PlaceholderPage title="Reports" phase="P8" /> },
-			{ path: "catalog", element: <PlaceholderPage title="Catalog" phase="P1" /> },
+			{ path: "catalog", element: <CatalogPage /> },
 			{ path: "team", element: <PlaceholderPage title="Team" phase="P8" /> },
 			{ path: "settings", element: <PlaceholderPage title="Settings" phase="P8" /> },
 		],

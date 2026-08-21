@@ -63,6 +63,11 @@ export const apiGet = <T>(path: string): Promise<T> => request<T>(path, { method
 export const apiPost = <T>(path: string, payload: object = {}): Promise<T> =>
 	request<T>(path, { method: "POST", body: JSON.stringify(payload) })
 
+export const apiPatch = <T>(path: string, payload: object = {}): Promise<T> =>
+	request<T>(path, { method: "PATCH", body: JSON.stringify(payload) })
+
+export const apiDelete = <T>(path: string): Promise<T> => request<T>(path, { method: "DELETE" })
+
 export const fieldError = (error: Error | null, field: string): string => {
 	if (!(error instanceof ApiClientError)) return ""
 	return error.details.find((detail) => detail.field === field)?.message ?? ""

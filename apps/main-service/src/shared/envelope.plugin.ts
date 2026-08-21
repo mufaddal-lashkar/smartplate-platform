@@ -18,6 +18,7 @@ const toApiError = (error: Error): ApiError => {
 		)
 	}
 
+	console.error("[unhandled]", error)
 	return new ApiError("INTERNAL", "Something went wrong on our end.")
 }
 

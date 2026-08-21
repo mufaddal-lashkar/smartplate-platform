@@ -62,6 +62,8 @@ services:
       REDIS_URL: redis://redis:6379
       AGENT_SERVICE_URL: http://agent-service:8000
       SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
+      ESCALATION_WINDOW_SECONDS: ${ESCALATION_WINDOW_SECONDS:-30}
+      NGO_BUFFER_HOURS: ${NGO_BUFFER_HOURS:-4}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
     depends_on:
       postgres:
@@ -83,6 +85,8 @@ services:
       REDIS_URL: redis://redis:6379
       AGENT_SERVICE_URL: http://agent-service:8000
       SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
+      ESCALATION_WINDOW_SECONDS: ${ESCALATION_WINDOW_SECONDS:-30}
+      NGO_BUFFER_HOURS: ${NGO_BUFFER_HOURS:-4}
     depends_on:
       postgres:
         condition: service_healthy

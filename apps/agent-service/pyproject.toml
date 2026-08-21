@@ -15,9 +15,15 @@ dependencies = [
 dev = [
     "pytest>=8.4.0",
     "pytest-asyncio>=1.3.0",
+    "httpx>=0.28.0",
     "ruff>=0.15.0",
 ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+# Windows bind mounts present every file as mode 777, so ruff sees an
+# executable file with no shebang. Environmental, not a code property.
+ignore = ["EXE002"]
