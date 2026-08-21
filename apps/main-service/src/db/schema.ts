@@ -1,5 +1,8 @@
 import {
+	boolean,
+	date,
 	index,
+	integer,
 	jsonb,
 	numeric,
 	pgEnum,
@@ -141,3 +144,272 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type Role = (typeof userRole.enumValues)[number]
 export type TenantType = (typeof tenantType.enumValues)[number]
+
+export const servingUnit = pgEnum("serving_unit", ["kg", "plate", "piece", "litre"])
+export const storageMethod = pgEnum("storage_method", ["room_temp", "refrigerated", "frozen"])
+export const listingChannel = pgEnum("listing_channel", ["b2b", "ngo"])
+export const listingStatus = pgEnum("listing_status", [
+	"open",
+	"claimed",
+	"completed",
+	"expired",
+	"cancelled",
+])
+export const leftoverStatus = pgEnum("leftover_status", [
+	"pending_disposition",
+	"awaiting_reuse",
+	"closed",
+])
+
+export const ingredients = pgTable(
+	"ingredients",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		name: text().notNull(),
+		category: text().notNull(),
+		baseUnit: text().notNull().default("g"),
+		pieceWeightG: numeric({ precision: 10, scale: 2 }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [uniqueIndex("ingredients_tenant_name_key").on(t.tenantId, t.name)],
+)
+
+export const dishes = pgTable(
+	"dishes",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		name: text().notNull(),
+		category: text().notNull().default(""),
+		servingUnit: servingUnit().notNull().default("kg"),
+		avgServingWeightG: numeric({ precision: 10, scale: 2 }),
+		sellingPrice: numeric({ precision: 10, scale: 2 }).notNull().default("0"),
+		costPerUnit: numeric({ precision: 10, scale: 2 }).notNull().default("0"),
+		shelfLifeHours: integer().notNull().default(24),
+		isReusable: boolean().notNull().default(true),
+		reuseRoute: text().notNull().default(""),
+		archivedAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("dishes_tenant_idx").on(t.tenantId, t.restaurantId)],
+)
+
+export const inventoryLots = pgTable(
+	"inventory_lots",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		ingredientId: uuid()
+			.notNull()
+			.references(() => ingredients.id, { onDelete: "cascade" }),
+		qtyPurchasedBase: numeric({ precision: 12, scale: 3 }).notNull(),
+		qtyRemainingBase: numeric({ precision: 12, scale: 3 }).notNull(),
+		unitCost: numeric({ precision: 10, scale: 4 }).notNull(),
+		purchaseDate: date().notNull(),
+		expiryDate: date(),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("inventory_lots_pick_idx").on(t.tenantId, t.ingredientId, t.expiryDate)],
+)
+
+export const inventoryMovements = pgTable(
+	"inventory_movements",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		lotId: uuid().references(() => inventoryLots.id, { onDelete: "cascade" }),
+		ingredientId: uuid()
+			.notNull()
+			.references(() => ingredients.id, { onDelete: "cascade" }),
+		qtyDeltaBase: numeric({ precision: 12, scale: 3 }).notNull(),
+		reason: text().notNull(),
+		occurredAt: timestamp({ withTimezone: true }).notNull(),
+	},
+	(t) => [index("inventory_movements_series_idx").on(t.tenantId, t.ingredientId, t.occurredAt)],
+)
+
+export const prepEntries = pgTable(
+	"prep_entries",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		dishId: uuid()
+			.notNull()
+			.references(() => dishes.id, { onDelete: "cascade" }),
+		serviceDate: date().notNull(),
+		mealPeriod: text().notNull(),
+		qtyPrepared: numeric({ precision: 12, scale: 3 }).notNull(),
+		qtyServed: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		covers: integer(),
+		preparedAt: timestamp({ withTimezone: true }).notNull(),
+	},
+	(t) => [index("prep_entries_service_idx").on(t.tenantId, t.serviceDate, t.mealPeriod)],
+)
+
+export const leftovers = pgTable(
+	"leftovers",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		dishId: uuid()
+			.notNull()
+			.references(() => dishes.id, { onDelete: "cascade" }),
+		prepEntryId: uuid().references(() => prepEntries.id, { onDelete: "set null" }),
+		serviceDate: date().notNull(),
+		qty: numeric({ precision: 12, scale: 3 }).notNull(),
+		unit: servingUnit().notNull(),
+		storage: storageMethod().notNull().default("room_temp"),
+		preparedAt: timestamp({ withTimezone: true }).notNull(),
+		safeUntil: timestamp({ withTimezone: true }).notNull(),
+		status: leftoverStatus().notNull().default("pending_disposition"),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("leftovers_service_idx").on(t.tenantId, t.serviceDate),
+		index("leftovers_status_idx").on(t.tenantId, t.status),
+	],
+)
+
+export const leftoverDispositions = pgTable(
+	"leftover_dispositions",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		leftoverId: uuid()
+			.notNull()
+			.references(() => leftovers.id, { onDelete: "cascade" }),
+		retainQty: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		sellQty: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		donateQty: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		wasteQty: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		sellPricePerUnit: numeric({ precision: 10, scale: 2 }).notNull().default("0"),
+		aiSuggestedRetainQty: numeric({ precision: 12, scale: 3 }).notNull().default("0"),
+		decidedByUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+		decidedAt: timestamp({ withTimezone: true }).notNull(),
+	},
+	(t) => [uniqueIndex("leftover_dispositions_leftover_key").on(t.leftoverId)],
+)
+
+export const surplusListings = pgTable(
+	"surplus_listings",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		channel: listingChannel().notNull(),
+		status: listingStatus().notNull().default("open"),
+		qty: numeric({ precision: 12, scale: 3 }).notNull(),
+		unit: servingUnit().notNull(),
+		pricePerUnit: numeric({ precision: 10, scale: 2 }).notNull().default("0"),
+		pickupFrom: timestamp({ withTimezone: true }).notNull(),
+		pickupUntil: timestamp({ withTimezone: true }).notNull(),
+		safeUntil: timestamp({ withTimezone: true }).notNull(),
+		escalateAt: timestamp({ withTimezone: true }),
+		claimedByTenantId: uuid().references(() => tenants.id, { onDelete: "set null" }),
+		claimedAt: timestamp({ withTimezone: true }),
+		completedAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("surplus_listings_open_idx").on(t.status, t.channel, t.pickupUntil),
+		index("surplus_listings_escalate_idx").on(t.escalateAt),
+	],
+)
+
+export const listingItems = pgTable("listing_items", {
+	id: uuid().primaryKey().defaultRandom(),
+	tenantId: uuid()
+		.notNull()
+		.references(() => tenants.id, { onDelete: "cascade" }),
+	listingId: uuid()
+		.notNull()
+		.references(() => surplusListings.id, { onDelete: "cascade" }),
+	leftoverId: uuid()
+		.notNull()
+		.references(() => leftovers.id, { onDelete: "cascade" }),
+	qty: numeric({ precision: 12, scale: 3 }).notNull(),
+})
+
+export const listingEvents = pgTable(
+	"listing_events",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		listingId: uuid()
+			.notNull()
+			.references(() => surplusListings.id, { onDelete: "cascade" }),
+		event: text().notNull(),
+		detail: text().notNull().default(""),
+		occurredAt: timestamp({ withTimezone: true }).notNull(),
+	},
+	(t) => [index("listing_events_listing_idx").on(t.listingId, t.occurredAt)],
+)
+
+export const predictions = pgTable(
+	"predictions",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		kind: text().notNull(),
+		targetRef: text().notNull().default(""),
+		payload: jsonb().notNull().default({}),
+		model: text().notNull(),
+		promptVersion: text().notNull().default(""),
+		source: text().notNull().default("model"),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("predictions_tenant_kind_idx").on(t.tenantId, t.kind, t.createdAt)],
+)
+
+export type Dish = typeof dishes.$inferSelect
+export type NewDish = typeof dishes.$inferInsert
+export type Leftover = typeof leftovers.$inferSelect
+export type NewLeftover = typeof leftovers.$inferInsert
+export type SurplusListing = typeof surplusListings.$inferSelect
+export type ServingUnit = (typeof servingUnit.enumValues)[number]
+export type StorageMethod = (typeof storageMethod.enumValues)[number]
+export type ListingChannel = (typeof listingChannel.enumValues)[number]
