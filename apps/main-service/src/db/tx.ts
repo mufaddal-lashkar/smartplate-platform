@@ -33,3 +33,10 @@ export const withSystem = async <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
 		await setSessionConfig(tx, "app.role", "system")
 		return fn(tx)
 	})
+
+export const withSuperAdmin = async <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
+	db.transaction(async (tx) => {
+		await setSessionConfig(tx, "app.role", "super_admin")
+		await setSessionConfig(tx, "app.tenant_id", "00000000-0000-0000-0000-000000000000")
+		return fn(tx)
+	})

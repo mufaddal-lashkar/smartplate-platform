@@ -345,6 +345,8 @@ export const surplusListings = pgTable(
 		claimedByTenantId: uuid().references(() => tenants.id, { onDelete: "set null" }),
 		claimedAt: timestamp({ withTimezone: true }),
 		completedAt: timestamp({ withTimezone: true }),
+		latitude: numeric({ precision: 9, scale: 6 }),
+		longitude: numeric({ precision: 9, scale: 6 }),
 		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 	},
 	(t) => [

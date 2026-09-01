@@ -1,13 +1,19 @@
 import { Queue } from "bullmq"
 import type { SessionContext } from "../../db/tx"
+import { ApiError } from "../../shared/api-error"
 import type { Clock } from "../../shared/clock"
 import { createRedis } from "../../shared/redis"
 import { publishEvent } from "../events/events.service"
 import {
+	cancelListing,
+	completeListing,
 	escalateOpenB2b,
 	type ListingWithEvents,
+	markListingNoShow,
 	selectDueEscalations,
 	selectListings,
+	updateListingPickupWindow,
+	updateListingPrice,
 } from "./listings.queries"
 
 export const ESCALATION_QUEUE = "escalation"
@@ -67,4 +73,75 @@ export const sweepDueEscalations = async (clock: Clock): Promise<number> => {
 		if (await escalateListing(listing.listingId, listing.tenantId, clock)) escalated += 1
 	}
 	return escalated
+}
+
+export const patchListing = async (
+	ctx: SessionContext,
+	listingId: string,
+	input: { pricePerUnit?: string; pickupUntil?: Date },
+	clock: Clock,
+): Promise<{ listingId: string }> => {
+	if (input.pricePerUnit == null && input.pickupUntil == null) {
+		throw new ApiError("VALIDATION_FAILED", "Provide pricePerUnit or pickupUntil to update.")
+	}
+	const now = clock.now()
+	if (input.pricePerUnit != null) {
+		const ok = await updateListingPrice(ctx, listingId, input.pricePerUnit, now)
+		if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be edited.")
+	}
+	if (input.pickupUntil != null) {
+		const ok = await updateListingPickupWindow(ctx, listingId, input.pickupUntil, now)
+		if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be edited.")
+	}
+	await publishEvent(ctx.tenantId, {
+		topic: "market",
+		name: "listing.updated",
+		data: { listingId, entityId: listingId },
+	})
+	return { listingId }
+}
+
+export const cancelOwnListing = async (
+	ctx: SessionContext,
+	listingId: string,
+	clock: Clock,
+): Promise<{ listingId: string }> => {
+	const ok = await cancelListing(ctx, listingId, clock.now())
+	if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be cancelled.")
+	await publishEvent(ctx.tenantId, {
+		topic: "market",
+		name: "listing.cancelled",
+		data: { listingId, entityId: listingId },
+	})
+	return { listingId }
+}
+
+export const completeOwnListing = async (
+	ctx: SessionContext,
+	listingId: string,
+	clock: Clock,
+): Promise<{ listingId: string }> => {
+	const ok = await completeListing(ctx, listingId, clock.now())
+	if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be completed.")
+	await publishEvent(ctx.tenantId, {
+		topic: "market",
+		name: "listing.collected",
+		data: { listingId, entityId: listingId },
+	})
+	return { listingId }
+}
+
+export const reportNoShow = async (
+	ctx: SessionContext,
+	listingId: string,
+	clock: Clock,
+): Promise<{ listingId: string }> => {
+	const ok = await markListingNoShow(ctx, listingId, clock.now())
+	if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing is not claimed.")
+	await publishEvent(ctx.tenantId, {
+		topic: "market",
+		name: "listing.no_show",
+		data: { listingId, entityId: listingId },
+	})
+	return { listingId }
 }

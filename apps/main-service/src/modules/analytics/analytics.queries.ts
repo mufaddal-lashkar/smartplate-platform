@@ -105,7 +105,7 @@ export const loadDashboardTotals = async (
 		const openRows = await tx
 			.select({ open: sql<string>`count(*)` })
 			.from(surplusListings)
-			.where(eq(surplusListings.status, "open"))
+			.where(and(eq(surplusListings.status, "open"), eq(surplusListings.tenantId, ctx.tenantId)))
 
 		return {
 			prepared: preparedRows.map((row) => ({

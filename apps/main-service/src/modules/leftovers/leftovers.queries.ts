@@ -37,6 +37,20 @@ export const requireRestaurantId = async (tx: Tx): Promise<string> => {
 	return id
 }
 
+export const findRestaurantGeo = async (
+	tx: Tx,
+	tenantId: string,
+): Promise<{ latitude: string; longitude: string } | null> => {
+	const rows = await tx
+		.select({ latitude: restaurants.latitude, longitude: restaurants.longitude })
+		.from(restaurants)
+		.where(eq(restaurants.tenantId, tenantId))
+		.limit(1)
+	const row = rows[0]
+	if (row?.latitude == null || row.longitude == null) return null
+	return { latitude: row.latitude, longitude: row.longitude }
+}
+
 export const findDishById = async (tx: Tx, dishId: string): Promise<Dish | null> => {
 	const rows = await tx.select().from(dishes).where(eq(dishes.id, dishId)).limit(1)
 	return rows[0] ?? null
@@ -129,6 +143,8 @@ export type ListingRow = {
 	pickupUntil: Date
 	safeUntil: Date
 	escalateAt: Date | null
+	latitude: string | null
+	longitude: string | null
 }
 
 export const insertListingRow = async (tx: Tx, values: ListingRow): Promise<SurplusListing> => {

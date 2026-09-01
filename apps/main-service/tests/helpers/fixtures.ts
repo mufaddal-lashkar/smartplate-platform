@@ -8,7 +8,9 @@ export type RestaurantContext = SessionContext & { restaurantId: string }
 
 export const testClock = fixedClock("2026-08-02T20:00:00Z")
 
-export const makeRestaurantTenant = async (): Promise<RestaurantContext> => {
+export const makeRestaurantTenant = async (
+	coords: { latitude: number; longitude: number } = { latitude: 19.076, longitude: 72.8777 },
+): Promise<RestaurantContext> => {
 	const tenant = await makeTenant("restaurant")
 	const suffix = crypto.randomUUID().slice(0, 8)
 	const ctx: SessionContext = {
@@ -20,8 +22,8 @@ export const makeRestaurantTenant = async (): Promise<RestaurantContext> => {
 
 	const restaurantId = await withTenant(ctx, async (tx) => {
 		const rows = await tx.execute(sql`
-			insert into restaurants (tenant_id, name)
-			values (${tenant.id}, ${`Test Kitchen ${suffix}`})
+			insert into restaurants (tenant_id, name, latitude, longitude)
+			values (${tenant.id}, ${`Test Kitchen ${suffix}`}, ${coords.latitude}, ${coords.longitude})
 			returning id
 		`)
 		return String(rows[0]?.id)
@@ -169,12 +171,13 @@ export const insertOpenB2bListing = async (
 		const rows = await tx.execute(sql`
 			insert into surplus_listings (
 				tenant_id, restaurant_id, channel, status, qty, unit, price_per_unit,
-				pickup_from, pickup_until, safe_until, escalate_at
+				pickup_from, pickup_until, safe_until, escalate_at, latitude, longitude
 			) values (
 				${ctx.tenantId}, ${ctx.restaurantId}, 'b2b', 'open',
 				${options.qty}, 'kg'::serving_unit, ${options.pricePerUnit},
 				now(), now() + interval '6 hours', now() + interval '12 hours',
-				now() + interval '30 seconds'
+				now() + interval '30 seconds',
+				19.076, 72.8777
 			) returning id
 		`)
 		const listingId = String(rows[0]?.id)

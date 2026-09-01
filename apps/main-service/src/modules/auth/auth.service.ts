@@ -9,7 +9,13 @@ import { signAccessToken } from "../../shared/jwt"
 import { enforceRateLimit, REFRESH_RULE } from "../../shared/rate-limit"
 import { permissionsForRole } from "../../shared/rbac"
 import { redis } from "../../shared/redis"
-import { findProfileName, findTenantById, findUserByEmail, findUserById } from "./auth.queries"
+import {
+	findProfileName,
+	findTenantById,
+	findTenantVerified,
+	findUserByEmail,
+	findUserById,
+} from "./auth.queries"
 
 export const ACCESS_TTL_SECONDS = 15 * 60
 export const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60
@@ -201,6 +207,7 @@ export const getMe = async (ctx: SessionContext): Promise<MeResponse> => {
 	}
 
 	const profileName = await findProfileName(ctx)
+	const verified = await findTenantVerified(ctx)
 
 	return {
 		user: { id: user.id, name: user.name, email: user.email, role: user.role },
@@ -208,6 +215,7 @@ export const getMe = async (ctx: SessionContext): Promise<MeResponse> => {
 			id: tenant.id,
 			name: profileName === "" ? tenant.name : profileName,
 			type: tenant.type,
+			verified,
 		},
 		permissions: permissionsForRole(user.role),
 	}

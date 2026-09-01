@@ -24,10 +24,22 @@ const RETRY_CEILING_MS = 30_000
 const dashboardScope = [queryKeys.dashboard("", "")[0]]
 const leftoverScope = [queryKeys.leftovers("")[0]]
 const listingScope = [queryKeys.listings()[0]]
+const marketScope = [
+	queryKeys.marketBrowse()[0],
+	queryKeys.marketMine()[0],
+	queryKeys.marketPickups()[0],
+]
 
 const INVALIDATED_BY: Record<string, string[][]> = {
-	"listing.created": [listingScope, leftoverScope, dashboardScope],
-	"listing.escalated": [listingScope, dashboardScope],
+	"listing.created": [listingScope, leftoverScope, dashboardScope, marketScope],
+	"listing.escalated": [listingScope, dashboardScope, marketScope],
+	"listing.claimed": [listingScope, marketScope],
+	"listing.released": [listingScope, marketScope],
+	"listing.updated": [listingScope, marketScope],
+	"listing.cancelled": [listingScope, marketScope],
+	"listing.collected": [listingScope, marketScope],
+	"listing.no_show": [listingScope, marketScope],
+	"market.claim.confirmed": [marketScope],
 	"job.completed": [listingScope, dashboardScope],
 	"notification.created": [],
 }

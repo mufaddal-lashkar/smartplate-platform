@@ -12,6 +12,7 @@ import {
 	XCircleIcon,
 } from "lucide-react"
 import { Fragment, useEffect, useState } from "react"
+import { ListingLifecycleActions } from "../components/listing-lifecycle-actions"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -186,6 +187,11 @@ const Timeline = ({ listing }: { listing: Listing }) => (
 				))}
 			</ol>
 		)}
+
+		<ListingLifecycleActions
+			listingId={listing.id}
+			status={listing.status as "open" | "claimed" | "completed" | "expired" | "cancelled"}
+		/>
 	</div>
 )
 
