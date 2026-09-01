@@ -405,6 +405,65 @@ export const predictions = pgTable(
 	(t) => [index("predictions_tenant_kind_idx").on(t.tenantId, t.kind, t.createdAt)],
 )
 
+export const suppliers = pgTable(
+	"suppliers",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		name: text().notNull(),
+		contactName: text().notNull().default(""),
+		contactPhone: text().notNull().default(""),
+		contactEmail: text().notNull().default(""),
+		addressLine: text().notNull().default(""),
+		archivedAt: timestamp({ withTimezone: true }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("suppliers_tenant_idx").on(t.tenantId)],
+)
+
+export const dishIngredients = pgTable(
+	"dish_ingredients",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		dishId: uuid()
+			.notNull()
+			.references(() => dishes.id, { onDelete: "cascade" }),
+		ingredientId: uuid()
+			.notNull()
+			.references(() => ingredients.id, { onDelete: "cascade" }),
+		qtyPerServing: numeric({ precision: 10, scale: 3 }).notNull(),
+		unit: text().notNull(),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("dish_ingredients_dish_idx").on(t.tenantId, t.dishId),
+		uniqueIndex("dish_ingredients_unique").on(t.dishId, t.ingredientId),
+	],
+)
+
+export const reuseConfirmations = pgTable(
+	"reuse_confirmations",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		leftoverId: uuid()
+			.notNull()
+			.references(() => leftovers.id, { onDelete: "cascade" }),
+		confirmedReusedQty: numeric({ precision: 12, scale: 3 }).notNull(),
+		confirmedByUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+		notes: text().notNull().default(""),
+		confirmedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [index("reuse_confirmations_tenant_idx").on(t.tenantId, t.leftoverId)],
+)
+
 export type Dish = typeof dishes.$inferSelect
 export type NewDish = typeof dishes.$inferInsert
 export type Leftover = typeof leftovers.$inferSelect

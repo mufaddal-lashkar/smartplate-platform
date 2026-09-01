@@ -24,6 +24,7 @@ export type HistorySummary = {
 	leftovers: number
 	dispositions: number
 	predictions: number
+	reuseConfirmations: number
 	listings: number
 	outcomes: Record<string, number>
 }
@@ -467,6 +468,21 @@ export const seedHistory = async (clock: Clock): Promise<HistorySummary> => {
 			)`,
 		)
 
+		const reuseConfirmationValues: SQL[] = planned
+			.filter((entry) => !entry.pending && entry.retainQty > 0)
+			.flatMap((entry) => {
+				const confirmedQty = round3(entry.retainQty * (0.6 + 0.4 * rng()))
+				if (confirmedQty <= 0) return []
+				return [
+					sql`(
+						${context.tenantId}, ${entry.id}, ${q3(confirmedQty)},
+						${context.ownerUserId},
+						${`Reused in ${entry.dish.reuseRoute} next-day service`},
+						${ts(entry.decidedAt.add(8, "hour"))}
+					)`,
+				]
+			})
+
 		const listingValues: SQL[] = []
 		const itemValues: SQL[] = []
 		const eventValues: SQL[] = []
@@ -645,6 +661,15 @@ export const seedHistory = async (clock: Clock): Promise<HistorySummary> => {
 				values ${values}
 			`,
 		)
+		await writeChunks(
+			tx,
+			reuseConfirmationValues,
+			(values) => sql`
+				insert into reuse_confirmations
+					(tenant_id, leftover_id, confirmed_reused_qty, confirmed_by_user_id, notes, confirmed_at)
+				values ${values}
+			`,
+		)
 
 		return {
 			days: WINDOW_DAYS,
@@ -654,6 +679,7 @@ export const seedHistory = async (clock: Clock): Promise<HistorySummary> => {
 			leftovers: leftoverValues.length,
 			dispositions: dispositionValues.length,
 			predictions: predictionValues.length,
+			reuseConfirmations: reuseConfirmationValues.length,
 			listings: listingValues.length,
 			outcomes: tally,
 		}

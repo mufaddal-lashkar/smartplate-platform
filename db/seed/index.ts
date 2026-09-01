@@ -27,6 +27,7 @@ const run = async () => {
 	console.log(
 		`Operating history: ${history.days} days, ${history.prepEntries} prep entries, ` +
 			`${history.leftovers} leftovers, ${history.dispositions} dispositions, ` +
+			`${history.reuseConfirmations} reuse confirmations, ` +
 			`${history.lots} lots, ${history.movements} stock movements`,
 	)
 	console.log(
