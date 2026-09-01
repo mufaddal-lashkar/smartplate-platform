@@ -10,7 +10,6 @@ import {
 } from "lucide-react"
 import { useMemo, useState } from "react"
 import { ListingCard, type MarketListing } from "../components/listing-card"
-import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Skeleton } from "../components/ui/skeleton"

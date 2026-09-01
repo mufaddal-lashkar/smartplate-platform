@@ -10,7 +10,9 @@ import {
 	listingItems,
 	ngos,
 	notifications,
+	predictionScores,
 	prepEntries,
+	reports,
 	restaurants,
 	reuseConfirmations,
 	suppliers,
@@ -23,12 +25,23 @@ export const tenantsRelations = relations(tenants, ({ many, one }) => ({
 	users: many(users),
 	notifications: many(notifications),
 	jobRuns: many(jobRuns),
+	reports: many(reports),
 	restaurant: one(restaurants),
 	ngo: one(ngos),
 }))
 
-export const restaurantsRelations = relations(restaurants, ({ one }) => ({
+export const restaurantsRelations = relations(restaurants, ({ one, many }) => ({
 	tenant: one(tenants, { fields: [restaurants.tenantId], references: [tenants.id] }),
+	predictionScores: many(predictionScores),
+	reports: many(reports),
+}))
+
+export const predictionScoresRelations = relations(predictionScores, ({ one }) => ({
+	tenant: one(tenants, { fields: [predictionScores.tenantId], references: [tenants.id] }),
+	restaurant: one(restaurants, {
+		fields: [predictionScores.restaurantId],
+		references: [restaurants.id],
+	}),
 }))
 
 export const ngosRelations = relations(ngos, ({ one }) => ({
@@ -120,6 +133,18 @@ export const reuseConfirmationsRelations = relations(reuseConfirmations, ({ one 
 	}),
 	confirmedBy: one(users, {
 		fields: [reuseConfirmations.confirmedByUserId],
+		references: [users.id],
+	}),
+}))
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+	tenant: one(tenants, { fields: [reports.tenantId], references: [tenants.id] }),
+	restaurant: one(restaurants, {
+		fields: [reports.restaurantId],
+		references: [restaurants.id],
+	}),
+	requestedBy: one(users, {
+		fields: [reports.requestedByUserId],
 		references: [users.id],
 	}),
 }))

@@ -23,7 +23,7 @@ const ownerContext = (tenantId: string): SessionContext => ({
 	userId: "",
 })
 
-const ngoContext = (tenantId: string): SessionContext => ({
+const _ngoContext = (tenantId: string): SessionContext => ({
 	tenantId,
 	tenantType: "ngo",
 	role: "ngo_admin",

@@ -119,6 +119,40 @@ export const assertInvariants = async (): Promise<InvariantReport> => {
 			)
 		}
 
+		await failIfAny(
+			tx,
+			sql`select id from prediction_scores`,
+			"prediction_scores should be empty after the seed; Phase E will populate it via the eval pipeline",
+		)
+
+		const emissionRows = await tx.execute(sql`select count(*)::int as n from emission_factors`)
+		const emissionCount = Number(emissionRows[0]?.n ?? 0)
+		if (emissionCount !== 11) {
+			throw new Error(
+				`emission_factors has ${emissionCount} rows; expected 11 (Poore & Nemecek categories + landfill)`,
+			)
+		}
+
+		const carbonRows = await tx.execute(sql`
+			with recovered as (
+				select d.id as dish_id,
+				       coalesce(sum(ld.retain_qty + ld.sell_qty + ld.donate_qty), 0) *
+				       coalesce(d.avg_serving_weight_g, 0) / 1000.0 as kg
+				from dishes d
+				left join prep_entries pe on pe.dish_id = d.id
+				left join leftovers lo on lo.prep_entry_id = pe.id
+				left join leftover_dispositions ld on ld.leftover_id = lo.id
+				group by d.id, d.avg_serving_weight_g
+			)
+			select count(*)::int as n from recovered where kg > 0
+		`)
+		const dishesWithRecovery = Number(carbonRows[0]?.n ?? 0)
+		if (dishesWithRecovery === 0) {
+			throw new Error(
+				"No dishes have any recovered quantity; kgCo2eAvoided math cannot produce a non-zero result",
+			)
+		}
+
 		return { surplusRate, preparedKg, leftoverKg }
 	})
 }

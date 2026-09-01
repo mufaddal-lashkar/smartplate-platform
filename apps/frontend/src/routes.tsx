@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { LoginPage } from "./auth/login-page"
 import { RegisterPage } from "./auth/register-page"
 import { homePathFor, useSession } from "./auth/use-session"
+import { AnalyticsPage } from "./pages/analytics-page"
 import { CatalogPage } from "./pages/catalog-page"
 import { DashboardPage } from "./pages/dashboard-page"
 import { InventoryPage } from "./pages/inventory-page"
@@ -9,9 +10,11 @@ import { KitchenPage } from "./pages/kitchen-page"
 import { LeftoversPage } from "./pages/leftovers-page"
 import { ListingsPage } from "./pages/listings-page"
 import { MarketPage } from "./pages/market-page"
+import { MethodologyPage } from "./pages/methodology-page"
 import { NgoIndexPage } from "./pages/ngo/index-page"
 import { NgoPickupsPage } from "./pages/ngo/pickups-page"
 import { NotFoundPage, PlaceholderPage } from "./pages/placeholder-page"
+import { ReportsPage } from "./pages/reports-page"
 import { AppShell } from "./shell/app-shell"
 
 const RootRedirect = () => {
@@ -42,8 +45,9 @@ export const router = createBrowserRouter([
 			{ path: "leftovers", element: <LeftoversPage /> },
 			{ path: "listings", element: <ListingsPage /> },
 			{ path: "market", element: <MarketPage /> },
-			{ path: "analytics", element: <PlaceholderPage title="Analytics" phase="P7" /> },
-			{ path: "reports", element: <PlaceholderPage title="Reports" phase="P8" /> },
+			{ path: "analytics", element: <AnalyticsPage /> },
+			{ path: "reports", element: <ReportsPage /> },
+			{ path: "methodology", element: <MethodologyPage /> },
 			{ path: "catalog", element: <CatalogPage /> },
 			{ path: "team", element: <PlaceholderPage title="Team" phase="P8" /> },
 			{ path: "settings", element: <PlaceholderPage title="Settings" phase="P8" /> },

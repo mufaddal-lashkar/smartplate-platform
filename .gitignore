@@ -35,3 +35,5 @@ coverage/
 .pytest_cache/
 .ruff_cache/
 .gstack/
+
+.playwright-mcp/

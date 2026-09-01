@@ -1,12 +1,6 @@
 import type { Collection } from "@smartplate/contracts/envelope"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-	CheckCircle2Icon,
-	CircleAlertIcon,
-	InboxIcon,
-	PackageIcon,
-	RefreshCwIcon,
-} from "lucide-react"
+import { CheckCircle2Icon, CircleAlertIcon, PackageIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
 import { ListingCard, type MarketListing } from "../../components/listing-card"
 import { ReliabilityBadge } from "../../components/reliability-badge"

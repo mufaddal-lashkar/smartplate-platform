@@ -11,6 +11,17 @@ import {
 	escalationQueue,
 	sweepDueEscalations,
 } from "./modules/listings/listings.service"
+import {
+	REPORTS_QUEUE,
+	REPORTS_SWEEP_JOB,
+	REPORTS_SWEEP_MS,
+	type ReportsJob,
+	reportsQueue,
+	runReportJob,
+	runSweepJob,
+	scheduleSweep,
+} from "./modules/reports/reports.job"
+import { sweepOldReports } from "./modules/reports/reports.service"
 import { systemClock } from "./shared/clock"
 
 const connection = new Redis(process.env.REDIS_URL ?? "redis://redis:6379", {
@@ -69,11 +80,39 @@ await escalationQueue.upsertJobScheduler(
 	{ name: ESCALATION_SWEEP_JOB, data: { listingId: "", tenantId: "" } },
 )
 
+const reportsWorker = new Worker<ReportsJob>(
+	REPORTS_QUEUE,
+	async (job) => {
+		if (job.name === REPORTS_SWEEP_JOB) {
+			const result = await sweepOldReports()
+			await runSweepJob()
+			return result
+		}
+		return runReportJob(job.data)
+	},
+	{ connection },
+)
+
+reportsWorker.on("ready", () => console.log(`[worker] listening on queue "${REPORTS_QUEUE}"`))
+
+reportsWorker.on("failed", (job, error) =>
+	console.error(`[worker] ${REPORTS_QUEUE} ${job?.id} failed`, error),
+)
+
+await scheduleSweep()
+await reportsQueue.upsertJobScheduler(
+	REPORTS_SWEEP_JOB,
+	{ every: REPORTS_SWEEP_MS },
+	{ name: REPORTS_SWEEP_JOB, data: { reportId: "", tenantId: "" } },
+)
+
 const shutdown = async () => {
 	await worker.close()
 	await escalationWorker.close()
+	await reportsWorker.close()
 	await pingQueue.close()
 	await escalationQueue.close()
+	await reportsQueue.close()
 	connection.disconnect()
 	process.exit(0)
 }
