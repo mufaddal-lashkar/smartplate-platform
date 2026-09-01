@@ -28,6 +28,7 @@ export const meSchema = z.object({
 		id: z.string(),
 		name: z.string(),
 		type: tenantTypeSchema,
+		verified: z.boolean().optional(),
 	}),
 	permissions: z.array(z.string()),
 })

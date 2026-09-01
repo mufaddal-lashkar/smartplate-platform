@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { withSystem } from "../../src/db/tx"
+import { setSessionConfig, withSystem } from "../../src/db/tx"
 
 export type TestTenant = {
 	id: string
@@ -24,4 +24,20 @@ export const makeTenant = async (type: "restaurant" | "ngo"): Promise<TestTenant
 
 		return { id: String(rows[0]?.tenant_id), ownerId: String(rows[0]?.owner_id) }
 	})
+}
+
+export const makeNgoTenant = async (verified: boolean): Promise<TestTenant> => {
+	const tenant = await makeTenant("ngo")
+	await withSystem(async (tx) => {
+		await setSessionConfig(tx, "app.tenant_id", tenant.id)
+		await tx.execute(sql`
+			insert into ngos (tenant_id, name, service_radius_km, active_from, active_to, verified_at, latitude, longitude)
+			values (
+				${tenant.id}, ${`Test NGO ${tenant.id.slice(0, 8)}`}, 25, '00:00', '23:59',
+				${verified ? new Date().toISOString() : null},
+				19.076, 72.8777
+			)
+		`)
+	})
+	return tenant
 }

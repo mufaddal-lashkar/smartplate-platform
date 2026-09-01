@@ -11,4 +11,7 @@ export const queryKeys = {
 	dispositionSuggestion: (leftoverId: string) => ["leftovers", "suggestion", leftoverId] as const,
 	listings: () => ["listings"] as const,
 	dashboard: (from: string, to: string) => ["dashboard", from, to] as const,
+	marketBrowse: () => ["market", "browse"] as const,
+	marketMine: () => ["market", "mine"] as const,
+	marketPickups: () => ["market", "pickups"] as const,
 }

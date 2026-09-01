@@ -10,6 +10,7 @@ import { healthRoute } from "./modules/health/health.route"
 import { inventoryRoute } from "./modules/inventory/inventory.route"
 import { leftoversRoute } from "./modules/leftovers/leftovers.route"
 import { listingsRoute } from "./modules/listings/listings.route"
+import { marketRoute } from "./modules/market/market.route"
 import { productionRoute } from "./modules/production/production.route"
 import { envelopePlugin } from "./shared/envelope.plugin"
 
@@ -28,6 +29,7 @@ const app = new Elysia()
 	.use(productionRoute)
 	.use(leftoversRoute)
 	.use(listingsRoute)
+	.use(marketRoute)
 	.use(analyticsRoute)
 	.listen(port)
 

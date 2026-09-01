@@ -520,7 +520,9 @@ export const seedHistory = async (clock: Clock): Promise<HistorySummary> => {
 				${bucket.unit}::serving_unit, ${q2(price)}, ${ts(pickupFrom)}, ${ts(pickupUntil)},
 				${ts(bucket.safeUntil)}, ${escalateAt == null ? null : ts(escalateAt)},
 				${claimHeld ? claimant : null}, ${claimHeld ? ts(claimedAt) : null},
-				${settled ? ts(completedAt) : null}, ${ts(bucket.createdAt)}
+				${settled ? ts(completedAt) : null}, ${ts(bucket.createdAt)},
+				(select latitude from restaurants where id = ${context.restaurantId}),
+				(select longitude from restaurants where id = ${context.restaurantId})
 			)`)
 
 			for (const item of bucket.items) {
@@ -641,7 +643,7 @@ export const seedHistory = async (clock: Clock): Promise<HistorySummary> => {
 				insert into surplus_listings
 					(id, tenant_id, restaurant_id, channel, status, qty, unit, price_per_unit,
 					 pickup_from, pickup_until, safe_until, escalate_at, claimed_by_tenant_id,
-					 claimed_at, completed_at, created_at)
+					 claimed_at, completed_at, created_at, latitude, longitude)
 				values ${values}
 			`,
 		)

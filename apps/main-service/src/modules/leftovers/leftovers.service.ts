@@ -16,6 +16,7 @@ import {
 	findLeftoversByServiceDate,
 	findPastListingOutcomes,
 	findRecentMenu,
+	findRestaurantGeo,
 	insertDispositionRow,
 	insertLeftoverRow,
 	insertListingEventRow,
@@ -349,6 +350,7 @@ const createBundledListing = async (
 	restaurantId: string,
 	channel: "b2b" | "ngo",
 	parts: ListingPart[],
+	geo: { latitude: string; longitude: string } | null,
 	now: Dayjs,
 ): Promise<SurplusListing> => {
 	const qty = round3(parts.reduce((sum, part) => sum + part.qty, 0))
@@ -372,6 +374,8 @@ const createBundledListing = async (
 		pickupUntil: pickupUntil.toDate(),
 		safeUntil: safeUntil.toDate(),
 		escalateAt: channel === "b2b" ? now.add(escalationWindowSeconds(), "second").toDate() : null,
+		latitude: geo?.latitude ?? null,
+		longitude: geo?.longitude ?? null,
 	})
 
 	for (const part of parts) {
@@ -405,6 +409,7 @@ export const commitDispositions = async (
 
 	const listings = await withTenant(ctx, async (tx) => {
 		const restaurantId = await requireRestaurantId(tx)
+		const geo = await findRestaurantGeo(tx, ctx.tenantId)
 		const rows = await findLeftoversByIds(tx, leftoverIds)
 		const byId = new Map(rows.map((row) => [row.id, row]))
 		const decided = await findDecidedLeftoverIds(tx, leftoverIds)
@@ -448,10 +453,10 @@ export const commitDispositions = async (
 		const created: SurplusListing[] = []
 
 		if (sellParts.length > 0) {
-			created.push(await createBundledListing(tx, ctx, restaurantId, "b2b", sellParts, now))
+			created.push(await createBundledListing(tx, ctx, restaurantId, "b2b", sellParts, geo, now))
 		}
 		if (donateParts.length > 0) {
-			created.push(await createBundledListing(tx, ctx, restaurantId, "ngo", donateParts, now))
+			created.push(await createBundledListing(tx, ctx, restaurantId, "ngo", donateParts, geo, now))
 		}
 
 		return created

@@ -29,3 +29,11 @@ export const findProfileName = async (ctx: SessionContext): Promise<string> =>
 		const rows = await tx.select({ name: ngos.name }).from(ngos).limit(1)
 		return rows[0]?.name ?? ""
 	})
+
+export const findTenantVerified = async (ctx: SessionContext): Promise<boolean> => {
+	if (ctx.tenantType !== "ngo") return true
+	return withTenant(ctx, async (tx) => {
+		const rows = await tx.select({ verifiedAt: ngos.verifiedAt }).from(ngos).limit(1)
+		return rows[0]?.verifiedAt != null
+	})
+}

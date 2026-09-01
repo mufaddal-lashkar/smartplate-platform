@@ -8,6 +8,9 @@ import { InventoryPage } from "./pages/inventory-page"
 import { KitchenPage } from "./pages/kitchen-page"
 import { LeftoversPage } from "./pages/leftovers-page"
 import { ListingsPage } from "./pages/listings-page"
+import { MarketPage } from "./pages/market-page"
+import { NgoIndexPage } from "./pages/ngo/index-page"
+import { NgoPickupsPage } from "./pages/ngo/pickups-page"
 import { NotFoundPage, PlaceholderPage } from "./pages/placeholder-page"
 import { AppShell } from "./shell/app-shell"
 
@@ -38,7 +41,7 @@ export const router = createBrowserRouter([
 			{ path: "kitchen", element: <KitchenPage /> },
 			{ path: "leftovers", element: <LeftoversPage /> },
 			{ path: "listings", element: <ListingsPage /> },
-			{ path: "market", element: <PlaceholderPage title="Browse surplus" phase="P4" /> },
+			{ path: "market", element: <MarketPage /> },
 			{ path: "analytics", element: <PlaceholderPage title="Analytics" phase="P7" /> },
 			{ path: "reports", element: <PlaceholderPage title="Reports" phase="P8" /> },
 			{ path: "catalog", element: <CatalogPage /> },
@@ -50,8 +53,8 @@ export const router = createBrowserRouter([
 		path: "/ngo",
 		element: <AppShell expect="ngo" />,
 		children: [
-			{ index: true, element: <PlaceholderPage title="Available food" phase="P4" /> },
-			{ path: "pickups", element: <PlaceholderPage title="My pickups" phase="P4" /> },
+			{ index: true, element: <NgoIndexPage /> },
+			{ path: "pickups", element: <NgoPickupsPage /> },
 			{ path: "organisation", element: <PlaceholderPage title="Organisation" phase="P8" /> },
 			{ path: "team", element: <PlaceholderPage title="Team" phase="P8" /> },
 		],

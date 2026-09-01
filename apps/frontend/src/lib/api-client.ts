@@ -41,6 +41,13 @@ const send = (path: string, init: RequestInit): Promise<Response> =>
 		headers: { "content-type": "application/json", ...init.headers },
 	})
 
+const idempotencyKey = (): string => {
+	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+		return crypto.randomUUID()
+	}
+	return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 const request = async <T>(path: string, init: RequestInit): Promise<T> => {
 	let response = await send(path, init)
 
@@ -61,7 +68,18 @@ const request = async <T>(path: string, init: RequestInit): Promise<T> => {
 export const apiGet = <T>(path: string): Promise<T> => request<T>(path, { method: "GET" })
 
 export const apiPost = <T>(path: string, payload: object = {}): Promise<T> =>
-	request<T>(path, { method: "POST", body: JSON.stringify(payload) })
+	request<T>(path, {
+		method: "POST",
+		body: JSON.stringify(payload),
+		headers: { "Idempotency-Key": idempotencyKey() },
+	})
+
+export const apiPostIdempotent = <T>(path: string, payload: object = {}, key: string): Promise<T> =>
+	request<T>(path, {
+		method: "POST",
+		body: JSON.stringify(payload),
+		headers: { "Idempotency-Key": key },
+	})
 
 export const apiPatch = <T>(path: string, payload: object = {}): Promise<T> =>
 	request<T>(path, { method: "PATCH", body: JSON.stringify(payload) })

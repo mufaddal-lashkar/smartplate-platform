@@ -32,24 +32,63 @@ const TENANTS: {
 	name: string
 	owner: { name: string; email: string; role: "owner" | "ngo_admin" }
 	staff: { name: string; email: string; role: "staff" | "ngo_volunteer" }
+	city: string
+	latitude: number
+	longitude: number
+	verified?: boolean
+	activeFrom?: string
+	activeTo?: string
 }[] = [
 	{
 		type: "restaurant",
 		name: "Spice Route",
 		owner: { name: "Asha Menon", email: "asha@spiceroute.local", role: "owner" },
 		staff: { name: "Vikram Rao", email: "vikram@spiceroute.local", role: "staff" },
+		city: "Bengaluru",
+		latitude: 12.9716,
+		longitude: 77.5946,
 	},
 	{
 		type: "restaurant",
 		name: "Anna Tiffin",
 		owner: { name: "Meera Iyer", email: "meera@annatiffin.local", role: "owner" },
 		staff: { name: "Suresh Nair", email: "suresh@annatiffin.local", role: "staff" },
+		city: "Bengaluru",
+		latitude: 12.9352,
+		longitude: 77.6245,
+	},
+	{
+		type: "restaurant",
+		name: "Green Bowl",
+		owner: { name: "Karthik Bhat", email: "karthik@greenbowl.local", role: "owner" },
+		staff: { name: "Divya Sharma", email: "divya@greenbowl.local", role: "staff" },
+		city: "Bengaluru",
+		latitude: 12.9784,
+		longitude: 77.6408,
 	},
 	{
 		type: "ngo",
 		name: "Akshaya Trust",
 		owner: { name: "Ravi Kumar", email: "ravi@akshaya.local", role: "ngo_admin" },
 		staff: { name: "Priya Das", email: "priya@akshaya.local", role: "ngo_volunteer" },
+		city: "Bengaluru",
+		latitude: 12.9698,
+		longitude: 77.75,
+		verified: true,
+		activeFrom: "06:00",
+		activeTo: "22:00",
+	},
+	{
+		type: "ngo",
+		name: "Helping Hands",
+		owner: { name: "Anita Joshi", email: "anita@helpinghands.local", role: "ngo_admin" },
+		staff: { name: "Rakesh Singh", email: "rakesh@helpinghands.local", role: "ngo_volunteer" },
+		city: "Bengaluru",
+		latitude: 12.95,
+		longitude: 77.7,
+		verified: false,
+		activeFrom: "09:00",
+		activeTo: "18:00",
 	},
 ]
 
@@ -114,13 +153,16 @@ export const seedP0Identity = async (clock: Clock): Promise<SeededAccount[]> => 
 
 			if (spec.type === "restaurant") {
 				await tx.execute(sql`
-					insert into restaurants (tenant_id, name, city, cuisine_type, created_at)
-					values (${tenantId}, ${spec.name}, 'Bengaluru', 'Multi-cuisine', ${createdAt})
+					insert into restaurants (tenant_id, name, city, cuisine_type, latitude, longitude, browse_radius_km, created_at)
+					values (${tenantId}, ${spec.name}, ${spec.city}, 'Multi-cuisine', ${spec.latitude}, ${spec.longitude}, 10, ${createdAt})
 				`)
 			} else {
 				await tx.execute(sql`
-					insert into ngos (tenant_id, name, active_from, active_to, created_at)
-					values (${tenantId}, ${spec.name}, '06:00', '14:00', ${createdAt})
+					insert into ngos (tenant_id, name, active_from, active_to, latitude, longitude, service_radius_km, verified_at, created_at)
+					values (${tenantId}, ${spec.name}, ${spec.activeFrom ?? "06:00"}, ${spec.activeTo ?? "22:00"},
+					        ${spec.latitude}, ${spec.longitude}, 25,
+					        ${spec.verified ? createdAt : null},
+					        ${createdAt})
 				`)
 			}
 		})

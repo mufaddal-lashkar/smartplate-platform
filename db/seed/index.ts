@@ -3,6 +3,7 @@ import { systemClock } from "../../apps/main-service/src/shared/clock"
 import { seedCatalog } from "./catalog"
 import { seedHistory } from "./history"
 import { assertInvariants } from "./invariants"
+import { seedOpenListings } from "./open-listings"
 import { isAlreadySeeded, seedP0Identity } from "./p0-identity"
 
 const run = async () => {
@@ -21,6 +22,7 @@ const run = async () => {
 
 	const catalog = await seedCatalog(systemClock)
 	const history = await seedHistory(systemClock)
+	const openListings = await seedOpenListings(systemClock)
 	const report = await assertInvariants()
 
 	console.log(`\nSpice Route catalog: ${catalog.ingredients} ingredients, ${catalog.dishes} dishes`)
@@ -37,6 +39,7 @@ const run = async () => {
 				.map(([outcome, count]) => `${outcome} ${count}`)
 				.join(", "),
 	)
+	console.log(`Open listings seeded for live demo: ${openListings}`)
 	console.log(
 		`Realised surplus rate: ${(report.surplusRate * 100).toFixed(1)}% ` +
 			`(${report.leftoverKg.toFixed(0)} kg surplus on ${report.preparedKg.toFixed(0)} kg prepared)`,

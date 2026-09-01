@@ -79,6 +79,17 @@ export const assertInvariants = async (): Promise<InvariantReport> => {
 			"A listing was claimed by the tenant that created it",
 		)
 
+		await failIfAny(
+			tx,
+			sql`
+				select id, claimed_by_tenant_id
+				  from surplus_listings
+				 where status = 'open'
+				   and claimed_by_tenant_id is not null
+			`,
+			"An open listing has a non-null claimer",
+		)
+
 		const totals = await tx.execute(sql`
 			select
 				coalesce(sum(p.qty_prepared * coalesce(d.avg_serving_weight_g, 1000) / 1000.0), 0) as prepared_kg,
