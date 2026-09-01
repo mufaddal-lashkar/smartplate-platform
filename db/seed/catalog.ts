@@ -485,6 +485,137 @@ export const seedCatalog = async (clock: Clock): Promise<CatalogCounts> => {
 			values ${valueList(dishValues)}
 		`)
 
+		const dishRows = await tx.execute(sql`
+			select id, name from dishes where restaurant_id = ${context.restaurantId}
+		`)
+		const dishIdByName = new Map(dishRows.map((row) => [String(row.name), String(row.id)]))
+
+		const ingredientRows = await tx.execute(sql`
+			select id, name from ingredients where restaurant_id = ${context.restaurantId}
+		`)
+		const ingredientIdByName = new Map(
+			ingredientRows.map((row) => [String(row.name), String(row.id)]),
+		)
+
+		const supplierValues: SQL[] = [
+			sql`(
+				${context.tenantId}, 'Sai Provision Stores', 'Ravi Kumar',
+				'+91-98456-11122', 'ravi@saiprovision.local', 'No 14, 2nd Cross, Gandhi Bazaar, Bengaluru',
+				${createdAt}
+			)`,
+			sql`(
+				${context.tenantId}, 'Annapurna Agro', 'Lakshmi Devi',
+				'+91-98456-22233', 'lakshmi@annapurna.local', 'Plot 9, APMC Yard, Yeshwantpur, Bengaluru',
+				${createdAt}
+			)`,
+			sql`(
+				${context.tenantId}, 'Krishna Dairy', 'Suresh Rao',
+				'+91-98456-33344', 'suresh@krishnadairy.local', '8th Main, Rajajinagar, Bengaluru',
+				${createdAt}
+			)`,
+		]
+		await tx.execute(sql`
+			insert into suppliers
+				(tenant_id, name, contact_name, contact_phone, contact_email, address_line, created_at)
+			values ${valueList(supplierValues)}
+		`)
+
+		const recipeValues: SQL[] = []
+		for (const spec of DISH_SPECS) {
+			const dishId = dishIdByName.get(spec.name)
+			if (dishId == null) continue
+			for (const item of recipeIngredientsFor(spec)) {
+				const ingredientId = ingredientIdByName.get(item.ingredientName)
+				if (ingredientId == null) continue
+				recipeValues.push(sql`(
+					${context.tenantId}, ${dishId}, ${ingredientId},
+					${item.qtyPerServing.toFixed(3)}, ${item.unit}, ${createdAt}
+				)`)
+			}
+		}
+		if (recipeValues.length > 0) {
+			await tx.execute(sql`
+				insert into dish_ingredients
+					(tenant_id, dish_id, ingredient_id, qty_per_serving, unit, created_at)
+				values ${valueList(recipeValues)}
+			`)
+		}
+
 		return { ingredients: INGREDIENT_SPECS.length, dishes: DISH_SPECS.length }
 	})
+}
+
+const recipeIngredientsFor = (
+	spec: DishSpec,
+): { ingredientName: string; qtyPerServing: number; unit: string }[] => {
+	switch (spec.name) {
+		case "Veg Biryani":
+		case "Chicken Biryani":
+		case "Jeera Rice":
+			return [
+				{
+					ingredientName: spec.name.includes("Chicken") ? "Basmati Rice" : "Basmati Rice",
+					qtyPerServing: 180,
+					unit: "g",
+				},
+				{ ingredientName: "Onion", qtyPerServing: 60, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 20, unit: "ml" },
+			]
+		case "Dal Tadka":
+			return [
+				{ ingredientName: "Toor Dal", qtyPerServing: 110, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 40, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 15, unit: "ml" },
+			]
+		case "Rajma Masala":
+			return [
+				{ ingredientName: "Rajma", qtyPerServing: 120, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 40, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 15, unit: "ml" },
+			]
+		case "Chana Masala":
+			return [
+				{ ingredientName: "Chana Dal", qtyPerServing: 120, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 40, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 15, unit: "ml" },
+			]
+		case "Paneer Butter Masala":
+			return [
+				{ ingredientName: "Paneer", qtyPerServing: 100, unit: "g" },
+				{ ingredientName: "Tomato", qtyPerServing: 60, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 15, unit: "ml" },
+			]
+		case "Mutton Rogan Josh":
+			return [
+				{ ingredientName: "Mutton", qtyPerServing: 180, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 50, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 20, unit: "ml" },
+			]
+		case "Chicken Curry":
+			return [
+				{ ingredientName: "Chicken", qtyPerServing: 180, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 50, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 20, unit: "ml" },
+			]
+		case "Mixed Veg Sabzi":
+			return [
+				{ ingredientName: "Potato", qtyPerServing: 80, unit: "g" },
+				{ ingredientName: "Tomato", qtyPerServing: 60, unit: "g" },
+				{ ingredientName: "Onion", qtyPerServing: 40, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 15, unit: "ml" },
+			]
+		case "Masala Dosa":
+			return [
+				{ ingredientName: "Wheat Flour", qtyPerServing: 70, unit: "g" },
+				{ ingredientName: "Potato", qtyPerServing: 90, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 10, unit: "ml" },
+			]
+		case "Tandoori Roti":
+			return [
+				{ ingredientName: "Wheat Flour", qtyPerServing: 55, unit: "g" },
+				{ ingredientName: "Sunflower Oil", qtyPerServing: 3, unit: "ml" },
+			]
+		default:
+			return []
+	}
 }

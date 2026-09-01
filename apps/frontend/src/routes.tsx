@@ -4,6 +4,8 @@ import { RegisterPage } from "./auth/register-page"
 import { homePathFor, useSession } from "./auth/use-session"
 import { CatalogPage } from "./pages/catalog-page"
 import { DashboardPage } from "./pages/dashboard-page"
+import { InventoryPage } from "./pages/inventory-page"
+import { KitchenPage } from "./pages/kitchen-page"
 import { LeftoversPage } from "./pages/leftovers-page"
 import { ListingsPage } from "./pages/listings-page"
 import { NotFoundPage, PlaceholderPage } from "./pages/placeholder-page"
@@ -32,8 +34,8 @@ export const router = createBrowserRouter([
 		element: <AppShell expect="restaurant" />,
 		children: [
 			{ index: true, element: <DashboardPage /> },
-			{ path: "inventory", element: <PlaceholderPage title="Inventory" phase="P1" /> },
-			{ path: "kitchen", element: <PlaceholderPage title="Kitchen" phase="P2" /> },
+			{ path: "inventory", element: <InventoryPage /> },
+			{ path: "kitchen", element: <KitchenPage /> },
 			{ path: "leftovers", element: <LeftoversPage /> },
 			{ path: "listings", element: <ListingsPage /> },
 			{ path: "market", element: <PlaceholderPage title="Browse surplus" phase="P4" /> },

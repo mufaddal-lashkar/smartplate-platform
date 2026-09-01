@@ -1,6 +1,8 @@
 import { relations } from "drizzle-orm"
 import {
 	dishes,
+	dishIngredients,
+	ingredients,
 	jobRuns,
 	leftoverDispositions,
 	leftovers,
@@ -10,6 +12,8 @@ import {
 	notifications,
 	prepEntries,
 	restaurants,
+	reuseConfirmations,
+	suppliers,
 	surplusListings,
 	tenants,
 	users,
@@ -92,5 +96,30 @@ export const listingEventsRelations = relations(listingEvents, ({ one }) => ({
 	listing: one(surplusListings, {
 		fields: [listingEvents.listingId],
 		references: [surplusListings.id],
+	}),
+}))
+
+export const suppliersRelations = relations(suppliers, ({ one }) => ({
+	tenant: one(tenants, { fields: [suppliers.tenantId], references: [tenants.id] }),
+}))
+
+export const dishIngredientsRelations = relations(dishIngredients, ({ one }) => ({
+	tenant: one(tenants, { fields: [dishIngredients.tenantId], references: [tenants.id] }),
+	dish: one(dishes, { fields: [dishIngredients.dishId], references: [dishes.id] }),
+	ingredient: one(ingredients, {
+		fields: [dishIngredients.ingredientId],
+		references: [ingredients.id],
+	}),
+}))
+
+export const reuseConfirmationsRelations = relations(reuseConfirmations, ({ one }) => ({
+	tenant: one(tenants, { fields: [reuseConfirmations.tenantId], references: [tenants.id] }),
+	leftover: one(leftovers, {
+		fields: [reuseConfirmations.leftoverId],
+		references: [leftovers.id],
+	}),
+	confirmedBy: one(users, {
+		fields: [reuseConfirmations.confirmedByUserId],
+		references: [users.id],
 	}),
 }))
