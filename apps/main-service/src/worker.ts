@@ -77,7 +77,9 @@ escalationWorker.on("failed", (job, error) =>
 await escalationQueue.upsertJobScheduler(
 	ESCALATION_SWEEP_JOB,
 	{ every: ESCALATION_SWEEP_MS },
-	{ name: ESCALATION_SWEEP_JOB, data: { listingId: "", tenantId: "" } },
+	ESCALATION_SWEEP_JOB,
+	{ listingId: "", tenantId: "" },
+	{},
 )
 
 const reportsWorker = new Worker<ReportsJob>(
@@ -103,7 +105,9 @@ await scheduleSweep()
 await reportsQueue.upsertJobScheduler(
 	REPORTS_SWEEP_JOB,
 	{ every: REPORTS_SWEEP_MS },
-	{ name: REPORTS_SWEEP_JOB, data: { reportId: "", tenantId: "" } },
+	REPORTS_SWEEP_JOB,
+	{ reportId: "", tenantId: "" },
+	{},
 )
 
 const shutdown = async () => {

@@ -51,7 +51,9 @@ export const scheduleSweep = async (): Promise<void> => {
 	await reportsQueue.upsertJobScheduler(
 		REPORTS_SWEEP_JOB,
 		{ every: REPORTS_SWEEP_MS },
-		{ name: REPORTS_SWEEP_JOB, data: { reportId: "", tenantId: "" } },
+		REPORTS_SWEEP_JOB,
+		{ reportId: "", tenantId: "" },
+		{},
 	)
 }
 

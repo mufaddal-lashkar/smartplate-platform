@@ -31,13 +31,6 @@ const ownerContext = (tenantId: string): SessionContext => ({
 	userId: "",
 })
 
-const sweeperContext: SessionContext = {
-	tenantId: "",
-	tenantType: "restaurant",
-	role: "super_admin",
-	userId: "",
-}
-
 export const selectListings = async (ctx: SessionContext): Promise<ListingWithEvents[]> =>
 	withTenant(ctx, async (tx) => {
 		const listings = await tx
@@ -109,7 +102,7 @@ export const escalateOpenB2b = async (
 	})
 
 export const selectDueEscalations = async (now: Dayjs, limit: number): Promise<DueEscalation[]> =>
-	withTenant(sweeperContext, async (tx) => {
+	withSuperAdmin(async (tx) => {
 		const rows = await tx.execute(sql`
 			select id, tenant_id
 			  from surplus_listings

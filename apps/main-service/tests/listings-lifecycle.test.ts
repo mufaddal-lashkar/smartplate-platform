@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import dayjs from "dayjs"
+import { selectDueEscalations } from "../src/modules/listings/listings.queries"
 import {
 	cancelOwnListing,
 	completeOwnListing,
@@ -185,5 +187,12 @@ describe("listing no-show", () => {
 		const ctx = await makeRestaurantTenant()
 		const listingId = await seedOpenB2b(ctx)
 		await expect(reportNoShow(ctx, listingId, testClock)).rejects.toThrow(/not claimed/i)
+	})
+})
+
+describe("b2b escalation sweep", () => {
+	test("selectDueEscalations runs cleanly under super_admin (no RLS uuid cast failure)", async () => {
+		const due = await selectDueEscalations(dayjs("2026-08-02T00:00:00Z"), 50)
+		expect(Array.isArray(due)).toBe(true)
 	})
 })
