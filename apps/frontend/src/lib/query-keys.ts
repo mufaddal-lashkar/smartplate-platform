@@ -1,6 +1,12 @@
 export const queryKeys = {
 	session: () => ["session"] as const,
 	dishes: () => ["dishes"] as const,
+	ingredients: () => ["ingredients"] as const,
+	suppliers: () => ["suppliers"] as const,
+	inventoryStock: () => ["inventory", "stock"] as const,
+	inventoryExpiring: () => ["inventory", "expiring"] as const,
+	prepEntries: (serviceDate: string) => ["prep-entries", serviceDate] as const,
+	reusePending: () => ["reuse-pending"] as const,
 	leftovers: (serviceDate: string) => ["leftovers", serviceDate] as const,
 	dispositionSuggestion: (leftoverId: string) => ["leftovers", "suggestion", leftoverId] as const,
 	listings: () => ["listings"] as const,
