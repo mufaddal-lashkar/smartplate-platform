@@ -12,12 +12,9 @@ COPY db/package.json ./db/
 RUN bun install --frozen-lockfile
 
 COPY packages ./packages
-COPY apps/main-service ./apps/main-service
 COPY apps/bot-service ./apps/bot-service
-COPY drizzle.config.ts ./
-COPY db ./db
 
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=3001
+EXPOSE 3001
 
-CMD ["bun", "run", "apps/main-service/src/index.ts"]
+CMD ["bun", "run", "apps/bot-service/src/index.ts"]

@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"workspaces": [
+		"apps/bot-service",
 		"apps/frontend",
 		"apps/main-service",
 		"packages/*",
@@ -17,7 +18,7 @@
 		"lint": "biome check .",
 		"lint:ci": "biome ci .",
 		"format": "biome check --write .",
-		"type:check": "bun run --cwd apps/frontend type:check",
+		"type:check": "bun run --cwd apps/frontend type:check && bun run --cwd apps/bot-service type:check",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",

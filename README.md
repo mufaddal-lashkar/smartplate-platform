@@ -92,6 +92,7 @@ handler that forgets a `WHERE` clause returns zero rows, not another restaurant'
 apps/
   frontend/       React 19 + Vite SPA          → nginx in production
   main-service/   Bun + Elysia + TypeScript    → API + BullMQ worker (same image)
+  bot-service/    Bun + grammY + Elysia        → Telegram channel adapter
   agent-service/  Python 3.12 + FastAPI        → stateless AI compute
 packages/
   contracts/      shared TypeScript types (envelope, error codes)
@@ -118,9 +119,10 @@ Run `bun run lint` (or `bun run format` to fix).
 
 ## Status
 
-**Phase D — org / team / admin / NGO verification / settings / auth extras** complete and
-ready for UI testing on the `phase-d-org-admin` branch. Phases A (inventory + kitchen), B
-(marketplace + NGO pickups), and C (analytics + reports + charts) have merged to `main`.
+**Phase E — Telegram bot** is on the `phase-e-telegram-bot` branch, ready for
+end-to-end testing against a running stack. Phases A (inventory + kitchen), B
+(marketplace + NGO pickups), C (analytics + reports + charts), and D (org / team
+/ admin / NGO verification / settings / auth extras) have merged to `main`.
 
 - Seeded accounts (password `smartplate-demo-2026` for all):
   - **Platform** — `admin@smartplate.local` (super_admin)
@@ -128,3 +130,66 @@ ready for UI testing on the `phase-d-org-admin` branch. Phases A (inventory + ki
   - **Akshaya Trust** — verified NGO (admin + volunteer)
   - **Helping Hands** — NGO pending verification (admin + volunteer)
 - Try the admin queue at `/admin/verification` and the team/settings pages under each tenant.
+
+---
+
+## Telegram bot
+
+Phase E exposes the same domain services through a Telegram bot. The bot is
+a *channel adapter* — it does not re-implement any business logic. It calls
+the same `/v1/...` routes on main-service, delegates free-form message
+parsing to agent-service's `/v1/parse-intent`, and subscribes to the existing
+`/v1/events` SSE stream for outbound notifications.
+
+```
+            ┌──────────────────────┐    SSE: GET /v1/events     ┌────────────────────┐
+            │      bot-service     │ ◀────────────────────────── │   main-service     │
+  Telegram  │  (Bun + grammY)      │                            │  (Elysia + Drizzle)│
+ updates ─▶ │  - webhook / polling │  HTTPS (Bearer JWT)        │                    │
+            │  - intent dispatcher │ ─────────────────────────▶ │  domain services   │
+            │  - SSE subscriber    │                            │  event publisher   │
+            │                      │  POST /v1/parse-intent     │  /v1/bot/session   │
+            │  free-form ─────────▶│ ─────────────────────────▶ │                    │
+            │                      │                            │  agent-service     │
+            │  file upload         │                            │  (FastAPI + Gemini)│
+            └──────────┬───────────┘                            └────────────────────┘
+                       │
+                       ▼
+              api.telegram.org/bot<token>
+```
+
+### Binding
+
+1. Create a bot via **@BotFather** and copy the token into `.env` as
+   `TELEGRAM_BOT_TOKEN`.
+2. From your Telegram client, send `/start <tenant_code>` to the bot. The
+   tenant code is the kebab-cased tenant name visible on `/settings` (e.g.
+   `spice-route`, `akshaya-trust`).
+3. The bot exchanges a one-time password for a bound refresh token, then
+   issues per-chat access tokens in the same JWT shape the browser uses.
+   From then on, every message you send is processed as *that user in that
+   tenant* — RBAC and audit apply normally.
+
+### Free-form vs menu
+
+Every inbound text message is first sent to agent-service `/v1/parse-intent`
+(Gemini). If parsing fails or the agent is down, a deterministic regex
+fallback handles the obvious cases (numbers, dish names, "list", "show
+yesterday"). When the model returns a confidence below the floor, the bot
+asks you for the missing field.
+
+Inline keyboards carry the destructive actions (claim, cancel, complete).
+The 5/hour notification cap is enforced by main-service — bot-service
+listens on the post-cap SSE stream and never re-implements the cap.
+
+### Demo personas
+
+| Persona | Tenant | Try |
+|---|---|---|
+| Asha — owner | `spice-route` | "show today's prep entries", "log 3 kg of basmati rice used", "leftover 4 portions of paneer butter masala", "weekly recovery report" |
+| Priya — NGO admin | `akshaya-trust` | "browse listings near me", tap to claim, "we picked it up" |
+| Demo super_admin | (synthetic) | "pending verifications", tap to approve |
+
+Bot-side files: `apps/bot-service/` (`src/bot/` for the dispatcher and reply
+shapes, `src/handlers/` for one module per domain, `src/sse-bridge.ts` for
+the outbound event fan-out).

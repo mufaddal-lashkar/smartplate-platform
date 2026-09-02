@@ -3,6 +3,7 @@ import { adminRoute } from "./modules/admin/admin.route"
 import { analyticsRoute } from "./modules/analytics/analytics.route"
 import { authRoute } from "./modules/auth/auth.route"
 import { sessionsRoute } from "./modules/auth/sessions.route"
+import { botRoute } from "./modules/bot/bot.route"
 import { catalogRoute } from "./modules/catalog/catalog.route"
 import { dishRecipeRoute } from "./modules/catalog/dish-recipe.route"
 import { ingredientsRoute } from "./modules/catalog/ingredients.route"
@@ -32,6 +33,7 @@ const app = new Elysia()
 	.use(healthRoute)
 	.use(authRoute)
 	.use(sessionsRoute)
+	.use(botRoute)
 	.use(eventsRoute)
 	.use(catalogRoute)
 	.use(ingredientsRoute)

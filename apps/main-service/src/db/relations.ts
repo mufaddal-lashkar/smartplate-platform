@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm"
 import {
 	auditLogs,
+	botUserLinks,
 	dishes,
 	dishIngredients,
 	ingredients,
@@ -19,6 +20,7 @@ import {
 	reuseConfirmations,
 	suppliers,
 	surplusListings,
+	telegramChats,
 	tenants,
 	userPermissions,
 	users,
@@ -179,4 +181,14 @@ export const reportsRelations = relations(reports, ({ one }) => ({
 		fields: [reports.requestedByUserId],
 		references: [users.id],
 	}),
+}))
+
+export const telegramChatsRelations = relations(telegramChats, ({ one }) => ({
+	tenant: one(tenants, { fields: [telegramChats.tenantId], references: [tenants.id] }),
+	user: one(users, { fields: [telegramChats.userId], references: [users.id] }),
+}))
+
+export const botUserLinksRelations = relations(botUserLinks, ({ one }) => ({
+	tenant: one(tenants, { fields: [botUserLinks.tenantId], references: [tenants.id] }),
+	user: one(users, { fields: [botUserLinks.userId], references: [users.id] }),
 }))

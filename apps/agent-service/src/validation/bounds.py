@@ -1,7 +1,11 @@
+from src.schemas.parse_intent import ParseIntentResponse
 from src.schemas.reuse_estimate import ReuseEstimateRequest, ReuseEstimateResponse
 
 QUANTITY_TOLERANCE = 0.01
 MIN_BASIS_LENGTH = 20
+MIN_CONFIDENCE = 0.0
+MAX_CONFIDENCE = 1.0
+MIN_INTENT_BASIS = 20
 
 
 class BoundsViolation(Exception):
@@ -41,4 +45,17 @@ def enforce_bounds(result: ReuseEstimateResponse, request: ReuseEstimateRequest)
         raise BoundsViolation(
             request_id,
             f"suggested_price_per_unit must be positive when selling, got {price}",
+        )
+
+
+def enforce_parse_intent_bounds(result: ParseIntentResponse, request_id: str) -> None:
+    if not (MIN_CONFIDENCE <= result.confidence <= MAX_CONFIDENCE):
+        raise BoundsViolation(
+            request_id,
+            f"confidence must be in [{MIN_CONFIDENCE}, {MAX_CONFIDENCE}], got {result.confidence}",
+        )
+    if len(result.basis) < MIN_INTENT_BASIS:
+        raise BoundsViolation(
+            request_id,
+            f"basis must be at least {MIN_INTENT_BASIS} characters, got {len(result.basis)}",
         )
