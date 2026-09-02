@@ -16,6 +16,8 @@ import { marketRoute } from "./modules/market/market.route"
 import { productionRoute } from "./modules/production/production.route"
 import { reportsDlRoute } from "./modules/reports/reports.dl.route"
 import { reportsRoute } from "./modules/reports/reports.route"
+import { permissionsRoute } from "./modules/users/permissions.route"
+import { usersRoute } from "./modules/users/users.route"
 import { envelopePlugin } from "./shared/envelope.plugin"
 
 const port = Number(process.env.PORT ?? 3000)
@@ -39,6 +41,8 @@ const app = new Elysia()
 	.use(insightsRoute)
 	.use(reportsRoute)
 	.use(reportsDlRoute)
+	.use(usersRoute)
+	.use(permissionsRoute)
 	.listen(port)
 
 console.log(`main-service listening on :${port}`)

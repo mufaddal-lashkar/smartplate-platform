@@ -18,7 +18,11 @@ export const writeAuditLog = async (
 ): Promise<void> => {
 	if (ctx.tenantId === "") {
 		throw new ApiError("VALIDATION_ERROR", "audit_log.tenant_required", [
-			{ field: "tenantId", message: `cannot write audit log '${entry.action}' without a tenant` },
+			{
+				field: "tenantId",
+				code: "VALIDATION_ERROR",
+				message: `cannot write audit log '${entry.action}' without a tenant`,
+			},
 		])
 	}
 
@@ -41,7 +45,11 @@ export const writeAuditLogFor = async (
 ): Promise<void> => {
 	if (tenantId === "") {
 		throw new ApiError("VALIDATION_ERROR", "audit_log.tenant_required", [
-			{ field: "tenantId", message: `cannot write audit log '${entry.action}' without a tenant` },
+			{
+				field: "tenantId",
+				code: "VALIDATION_ERROR",
+				message: `cannot write audit log '${entry.action}' without a tenant`,
+			},
 		])
 	}
 
