@@ -26,14 +26,14 @@ export const inventoryRoute = new Elysia()
 	.use(sessionPlugin)
 	.get("/v1/inventory/stock", async ({ session }): Promise<Collection<StockAggregate>> => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.read")
+		await requirePermission(active, "inventory.read")
 		return { items: await getStock(active), nextCursor: "" }
 	})
 	.get(
 		"/v1/inventory/lots",
 		async ({ query, session }): Promise<Collection<InventoryLot>> => {
 			const active = requireSession(session)
-			requirePermission(active, "inventory.read")
+			await requirePermission(active, "inventory.read")
 			const ingredientId = query.ingredientId ?? ""
 			return { items: await getLots(active, ingredientId), nextCursor: "" }
 		},
@@ -47,7 +47,7 @@ export const inventoryRoute = new Elysia()
 		"/v1/inventory/expiring",
 		async ({ query, session }): Promise<Collection<ExpiringLot>> => {
 			const active = requireSession(session)
-			requirePermission(active, "inventory.read")
+			await requirePermission(active, "inventory.read")
 			const withinDays = query.withinDays ?? 7
 			return { items: await getExpiring(active, withinDays), nextCursor: "" }
 		},
@@ -61,7 +61,7 @@ export const inventoryRoute = new Elysia()
 		"/v1/inventory/movements",
 		async ({ query, session }): Promise<Collection<InventoryMovement>> => {
 			const active = requireSession(session)
-			requirePermission(active, "inventory.read")
+			await requirePermission(active, "inventory.read")
 			const ids = (query.ingredientIds ?? "")
 				.split(",")
 				.map((s) => s.trim())
@@ -78,7 +78,7 @@ export const inventoryRoute = new Elysia()
 		"/v1/inventory/purchases",
 		async ({ body, request, session }): Promise<IdempotencyEnvelope<PurchaseResponse>> => {
 			const active = requireSession(session)
-			requirePermission(active, "inventory.write")
+			await requirePermission(active, "inventory.write")
 			const key = requireIdempotencyKey({ request })
 			const input = purchaseInputSchema.parse(body)
 
@@ -92,6 +92,6 @@ export const inventoryRoute = new Elysia()
 	)
 	.post("/v1/inventory/adjustments", async ({ body, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.write")
+		await requirePermission(active, "inventory.write")
 		return recordAdjustment(active, adjustmentInputSchema.parse(body), systemClock.now().toDate())
 	})

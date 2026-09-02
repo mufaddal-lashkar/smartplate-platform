@@ -19,7 +19,7 @@ export const leftoversRoute = new Elysia({ prefix: "/v1/leftovers" })
 	.get("/", async ({ session, query }) => {
 		const active = requireSession(session)
 		requireTenantType(active, "restaurant")
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 
 		const parsed = listLeftoversQuerySchema.parse({
 			serviceDate: query.serviceDate ?? "",
@@ -30,21 +30,21 @@ export const leftoversRoute = new Elysia({ prefix: "/v1/leftovers" })
 	.post("/", async ({ session, body }) => {
 		const active = requireSession(session)
 		requireTenantType(active, "restaurant")
-		requirePermission(active, "leftover.write")
+		await requirePermission(active, "leftover.write")
 
 		return recordLeftover(active, recordLeftoverSchema.parse(body), systemClock)
 	})
 	.post("/dispositions", async ({ session, body }) => {
 		const active = requireSession(session)
 		requireTenantType(active, "restaurant")
-		requirePermission(active, "disposition.decide")
+		await requirePermission(active, "disposition.decide")
 
 		return commitDispositions(active, commitDispositionsSchema.parse(body), systemClock)
 	})
 	.get("/:id/disposition-suggestion", async ({ session, params }) => {
 		const active = requireSession(session)
 		requireTenantType(active, "restaurant")
-		requirePermission(active, "disposition.decide")
+		await requirePermission(active, "disposition.decide")
 
 		return suggestDisposition(active, params.id, systemClock)
 	})

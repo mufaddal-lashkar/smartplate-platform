@@ -19,7 +19,7 @@ export const insightsRoute = new Elysia({ prefix: "/v1" })
 	.use(sessionPlugin)
 	.get("/insights", async ({ session, query }) => {
 		const active = requireSession(session)
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 		insightsQuerySchema.parse(query)
 		return requireInsightOrThrow(active)
 	})
