@@ -35,7 +35,9 @@ const TENANTS: {
 	city: string
 	latitude: number
 	longitude: number
-	verified?: boolean
+	verificationStatus: "approved" | "pending"
+	registrationNo?: string
+	contactPhone?: string
 	activeFrom?: string
 	activeTo?: string
 }[] = [
@@ -47,6 +49,7 @@ const TENANTS: {
 		city: "Bengaluru",
 		latitude: 12.9716,
 		longitude: 77.5946,
+		verificationStatus: "approved",
 	},
 	{
 		type: "restaurant",
@@ -56,6 +59,7 @@ const TENANTS: {
 		city: "Bengaluru",
 		latitude: 12.9352,
 		longitude: 77.6245,
+		verificationStatus: "approved",
 	},
 	{
 		type: "restaurant",
@@ -65,6 +69,7 @@ const TENANTS: {
 		city: "Bengaluru",
 		latitude: 12.9784,
 		longitude: 77.6408,
+		verificationStatus: "approved",
 	},
 	{
 		type: "ngo",
@@ -74,9 +79,11 @@ const TENANTS: {
 		city: "Bengaluru",
 		latitude: 12.9698,
 		longitude: 77.75,
-		verified: true,
+		verificationStatus: "approved",
 		activeFrom: "06:00",
 		activeTo: "22:00",
+		registrationNo: "REG-AKS-001",
+		contactPhone: "+91-9000000001",
 	},
 	{
 		type: "ngo",
@@ -86,11 +93,18 @@ const TENANTS: {
 		city: "Bengaluru",
 		latitude: 12.95,
 		longitude: 77.7,
-		verified: false,
+		verificationStatus: "pending",
 		activeFrom: "09:00",
 		activeTo: "18:00",
+		registrationNo: "REG-HH-002",
+		contactPhone: "+91-9000000002",
 	},
 ]
+
+const SUPER_ADMIN: { name: string; email: string } = {
+	name: "Demo Super Admin",
+	email: "admin@smartplate.local",
+}
 
 export const SEED_PASSWORD = "smartplate-demo-2026"
 
@@ -114,6 +128,20 @@ export const seedP0Identity = async (clock: Clock): Promise<SeededAccount[]> => 
 				on conflict (category) do nothing
 			`)
 		}
+	})
+
+	await db.transaction(async (tx) => {
+		await setSessionConfig(tx, "app.role", "system")
+		await tx.execute(sql`
+			insert into users (tenant_id, email, password_hash, name, role, created_at)
+			values (null, ${SUPER_ADMIN.email}, ${passwordHash}, ${SUPER_ADMIN.name}, 'super_admin'::user_role, ${createdAt})
+			on conflict (email) do nothing
+		`)
+	})
+	accounts.push({
+		label: "Platform (super_admin)",
+		email: SUPER_ADMIN.email,
+		password: SEED_PASSWORD,
 	})
 
 	for (const spec of TENANTS) {
@@ -157,12 +185,24 @@ export const seedP0Identity = async (clock: Clock): Promise<SeededAccount[]> => 
 					values (${tenantId}, ${spec.name}, ${spec.city}, 'Multi-cuisine', ${spec.latitude}, ${spec.longitude}, 10, ${createdAt})
 				`)
 			} else {
+				const verificationSubmittedAt = spec.verificationStatus === "pending" ? createdAt : null
+				const verifiedAt = spec.verificationStatus === "approved" ? createdAt : null
 				await tx.execute(sql`
-					insert into ngos (tenant_id, name, active_from, active_to, latitude, longitude, service_radius_km, verified_at, created_at)
-					values (${tenantId}, ${spec.name}, ${spec.activeFrom ?? "06:00"}, ${spec.activeTo ?? "22:00"},
-					        ${spec.latitude}, ${spec.longitude}, 25,
-					        ${spec.verified ? createdAt : null},
-					        ${createdAt})
+					insert into ngos (
+						tenant_id, name, active_from, active_to, latitude, longitude, service_radius_km,
+						verified_at, verification_status, verification_submitted_at, verification_reviewed_by,
+						registration_no, contact_phone
+					)
+					values (
+						${tenantId}, ${spec.name}, ${spec.activeFrom ?? "06:00"}, ${spec.activeTo ?? "22:00"},
+						${spec.latitude}, ${spec.longitude}, 25,
+						${verifiedAt},
+						${spec.verificationStatus}::ngo_verification_status,
+						${verificationSubmittedAt},
+						${spec.verificationStatus === "approved" ? ownerId : null},
+						${spec.registrationNo ?? null},
+						${spec.contactPhone ?? null}
+					)
 				`)
 			}
 		})
