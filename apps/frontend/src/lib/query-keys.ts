@@ -22,4 +22,11 @@ export const queryKeys = {
 	analyticsForecasts: (from: string, to: string) => ["analytics", "forecasts", from, to] as const,
 	insights: () => ["insights"] as const,
 	reports: () => ["reports"] as const,
+	team: () => ["team"] as const,
+	tenant: () => ["tenant"] as const,
+	restaurant: () => ["restaurant"] as const,
+	ngo: () => ["ngo"] as const,
+	adminTenants: () => ["admin", "tenants"] as const,
+	adminAnalytics: () => ["admin", "analytics"] as const,
+	notificationPreferences: () => ["notification-preferences"] as const,
 }

@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { LoginPage } from "./auth/login-page"
 import { RegisterPage } from "./auth/register-page"
 import { homePathFor, useSession } from "./auth/use-session"
+import { AdminTenantsPage } from "./pages/admin-tenants-page"
+import { AdminVerificationPage } from "./pages/admin-verification-page"
 import { AnalyticsPage } from "./pages/analytics-page"
 import { CatalogPage } from "./pages/catalog-page"
 import { DashboardPage } from "./pages/dashboard-page"
@@ -12,9 +14,13 @@ import { ListingsPage } from "./pages/listings-page"
 import { MarketPage } from "./pages/market-page"
 import { MethodologyPage } from "./pages/methodology-page"
 import { NgoIndexPage } from "./pages/ngo/index-page"
+import { NgoOrganisationPage } from "./pages/ngo/organisation-page"
 import { NgoPickupsPage } from "./pages/ngo/pickups-page"
-import { NotFoundPage, PlaceholderPage } from "./pages/placeholder-page"
+import { NgoTeamPage } from "./pages/ngo/team-page"
+import { NotFoundPage } from "./pages/placeholder-page"
 import { ReportsPage } from "./pages/reports-page"
+import { SettingsPage } from "./pages/settings-page"
+import { TeamPage } from "./pages/team-page"
 import { AppShell } from "./shell/app-shell"
 
 const RootRedirect = () => {
@@ -49,8 +55,8 @@ export const router = createBrowserRouter([
 			{ path: "reports", element: <ReportsPage /> },
 			{ path: "methodology", element: <MethodologyPage /> },
 			{ path: "catalog", element: <CatalogPage /> },
-			{ path: "team", element: <PlaceholderPage title="Team" phase="P8" /> },
-			{ path: "settings", element: <PlaceholderPage title="Settings" phase="P8" /> },
+			{ path: "team", element: <TeamPage /> },
+			{ path: "settings", element: <SettingsPage /> },
 		],
 	},
 	{
@@ -59,17 +65,17 @@ export const router = createBrowserRouter([
 		children: [
 			{ index: true, element: <NgoIndexPage /> },
 			{ path: "pickups", element: <NgoPickupsPage /> },
-			{ path: "organisation", element: <PlaceholderPage title="Organisation" phase="P8" /> },
-			{ path: "team", element: <PlaceholderPage title="Team" phase="P8" /> },
+			{ path: "organisation", element: <NgoOrganisationPage /> },
+			{ path: "team", element: <NgoTeamPage /> },
 		],
 	},
 	{
 		path: "/admin",
 		element: <AppShell expect="admin" />,
 		children: [
-			{ index: true, element: <PlaceholderPage title="Tenants" phase="P8" /> },
-			{ path: "verification", element: <PlaceholderPage title="NGO verification" phase="P8" /> },
-			{ path: "analytics", element: <PlaceholderPage title="Platform analytics" phase="P8" /> },
+			{ index: true, element: <AdminTenantsPage /> },
+			{ path: "verification", element: <AdminVerificationPage /> },
+			{ path: "analytics", element: <AdminTenantsPage /> },
 		],
 	},
 	{ path: "*", element: <NotFoundPage /> },

@@ -84,7 +84,8 @@ export const apiPostIdempotent = <T>(path: string, payload: object = {}, key: st
 export const apiPatch = <T>(path: string, payload: object = {}): Promise<T> =>
 	request<T>(path, { method: "PATCH", body: JSON.stringify(payload) })
 
-export const apiDelete = <T>(path: string): Promise<T> => request<T>(path, { method: "DELETE" })
+export const apiDelete = <T>(path: string, payload: object = {}): Promise<T> =>
+	request<T>(path, { method: "DELETE", body: JSON.stringify(payload) })
 
 export const fieldError = (error: Error | null, field: string): string => {
 	if (!(error instanceof ApiClientError)) return ""
