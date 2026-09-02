@@ -1,6 +1,7 @@
 import { Elysia } from "elysia"
 import { analyticsRoute } from "./modules/analytics/analytics.route"
 import { authRoute } from "./modules/auth/auth.route"
+import { sessionsRoute } from "./modules/auth/sessions.route"
 import { catalogRoute } from "./modules/catalog/catalog.route"
 import { dishRecipeRoute } from "./modules/catalog/dish-recipe.route"
 import { ingredientsRoute } from "./modules/catalog/ingredients.route"
@@ -23,6 +24,7 @@ const app = new Elysia()
 	.use(envelopePlugin)
 	.use(healthRoute)
 	.use(authRoute)
+	.use(sessionsRoute)
 	.use(eventsRoute)
 	.use(catalogRoute)
 	.use(ingredientsRoute)

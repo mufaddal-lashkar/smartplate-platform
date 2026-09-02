@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { sql } from "drizzle-orm"
 import { withSuperAdmin } from "../src/db/tx"
 import {
@@ -8,7 +8,6 @@ import {
 	rotateRefresh,
 } from "../src/modules/auth/auth.service"
 import { fixedClock } from "../src/shared/clock"
-import { redis } from "../src/shared/redis"
 
 const clock = fixedClock("2026-08-01T10:00:00Z")
 const uniqueEmail = () => `reset-${crypto.randomUUID().slice(0, 8)}@test.local`
@@ -215,8 +214,4 @@ describe("super_admin login", () => {
 			if (previous != null) process.env.SMTP_URL = previous
 		}
 	})
-})
-
-afterAll(async () => {
-	await redis.quit()
 })

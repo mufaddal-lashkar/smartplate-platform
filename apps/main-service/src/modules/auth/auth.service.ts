@@ -68,7 +68,7 @@ const issueTokens = async (
 
 	await redis.set(
 		refreshKey(hash),
-		JSON.stringify({ ...session, family }),
+		JSON.stringify({ ...session, family, issuedAt: nowSeconds }),
 		"EX",
 		REFRESH_TTL_SECONDS,
 	)
@@ -271,6 +271,46 @@ const untrackSessionForUser = async (userId: string, family: string) => {
 
 const findFamiliesForUser = async (userId: string): Promise<string[]> => {
 	return redis.smembers(refreshUserIndexKey(userId))
+}
+
+const findSessionDetail = async (hash: string) => {
+	const stored = await redis.get(refreshKey(hash))
+	if (stored == null) return null
+	return JSON.parse(stored) as SessionContext & { family: string; issuedAt: number }
+}
+
+export type ActiveSession = {
+	family: string
+	hash: string
+	userId: string
+	tenantId: string
+	tenantType: string
+	role: string
+	issuedAt: number
+}
+
+export const findActiveSessionsForUser = async (userId: string): Promise<ActiveSession[]> => {
+	const families = await findFamiliesForUser(userId)
+	const sessions: ActiveSession[] = []
+
+	for (const family of families) {
+		const memberHashes = await redis.smembers(familyKey(family))
+		for (const hash of memberHashes) {
+			const detail = await findSessionDetail(hash)
+			if (detail == null) continue
+			sessions.push({
+				family,
+				hash,
+				userId: detail.userId,
+				tenantId: detail.tenantId,
+				tenantType: detail.tenantType,
+				role: detail.role,
+				issuedAt: detail.issuedAt,
+			})
+		}
+	}
+
+	return sessions
 }
 
 export const completePasswordReset = async (
