@@ -38,6 +38,7 @@ services:
       - ./packages:/app/packages
       - ./db:/app/db
       - ./drizzle.config.ts:/app/drizzle.config.ts
+      - ./apps/main-service/.runtime:/app/.runtime
       - /app/apps/main-service/node_modules
       - /app/packages/contracts/node_modules
       - /app/db/node_modules
@@ -48,6 +49,7 @@ services:
       - ./apps/main-service/src:/app/apps/main-service/src
       - ./packages:/app/packages
       - ./db:/app/db
+      - ./apps/main-service/.runtime:/app/.runtime
       - /app/apps/main-service/node_modules
       - /app/packages/contracts/node_modules
       - /app/db/node_modules

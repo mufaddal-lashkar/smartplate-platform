@@ -22,7 +22,7 @@ export const listBrowseableMarket = async (
 		const window = await findNgoActiveWindow(ctx.tenantId)
 		if (window == null) return otherListings
 		const now = clock.now()
-		return otherListings.filter((row) =>
+		return otherListings.filter((_row) =>
 			withinActiveWindow(window.activeFrom, window.activeTo, now),
 		)
 	}

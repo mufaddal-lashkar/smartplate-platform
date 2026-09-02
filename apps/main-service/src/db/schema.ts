@@ -138,6 +138,36 @@ export const jobRuns = pgTable(
 	(t) => [index("job_runs_tenant_type_idx").on(t.tenantId, t.jobType)],
 )
 
+export const predictionScoreKind = ["reuse"] as const
+export type PredictionScoreKind = (typeof predictionScoreKind)[number]
+
+export const predictionScores = pgTable(
+	"prediction_scores",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		kind: text().$type<PredictionScoreKind>().notNull(),
+		periodStart: date().notNull(),
+		periodEnd: date().notNull(),
+		predictedValue: numeric({ precision: 12, scale: 3 }).notNull(),
+		actualValue: numeric({ precision: 12, scale: 3 }).notNull(),
+		absError: numeric({ precision: 12, scale: 3 }).notNull(),
+		model: text().notNull(),
+		promptVersion: text().notNull().default(""),
+		source: text().notNull().default("model"),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("prediction_scores_tenant_idx").on(t.tenantId, t.kind, t.periodEnd),
+		index("prediction_scores_period_idx").on(t.periodEnd),
+	],
+)
+
 export type Tenant = typeof tenants.$inferSelect
 export type NewTenant = typeof tenants.$inferInsert
 export type User = typeof users.$inferSelect
@@ -464,6 +494,35 @@ export const reuseConfirmations = pgTable(
 		confirmedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 	},
 	(t) => [index("reuse_confirmations_tenant_idx").on(t.tenantId, t.leftoverId)],
+)
+
+export const reportStatuses = ["queued", "running", "succeeded", "failed"] as const
+export type ReportStatus = (typeof reportStatuses)[number]
+
+export const reports = pgTable(
+	"reports",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		restaurantId: uuid()
+			.notNull()
+			.references(() => restaurants.id, { onDelete: "cascade" }),
+		reportType: text().notNull(),
+		periodStart: date().notNull(),
+		periodEnd: date().notNull(),
+		format: text().notNull(),
+		artifactPath: text().notNull().default(""),
+		status: text().$type<ReportStatus>().notNull().default("queued"),
+		error: text().notNull().default(""),
+		requestedByUserId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+		finishedAt: timestamp({ withTimezone: true }),
+	},
+	(t) => [index("reports_tenant_idx").on(t.tenantId, t.createdAt)],
 )
 
 export type Dish = typeof dishes.$inferSelect

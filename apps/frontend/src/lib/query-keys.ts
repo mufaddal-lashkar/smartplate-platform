@@ -14,4 +14,12 @@ export const queryKeys = {
 	marketBrowse: () => ["market", "browse"] as const,
 	marketMine: () => ["market", "mine"] as const,
 	marketPickups: () => ["market", "pickups"] as const,
+	analyticsWaste: (from: string, to: string, grain: string) =>
+		["analytics", "waste", from, to, grain] as const,
+	analyticsRecovery: (from: string, to: string, grain: string) =>
+		["analytics", "recovery", from, to, grain] as const,
+	analyticsDishes: (from: string, to: string) => ["analytics", "dishes", from, to] as const,
+	analyticsForecasts: (from: string, to: string) => ["analytics", "forecasts", from, to] as const,
+	insights: () => ["insights"] as const,
+	reports: () => ["reports"] as const,
 }
