@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm"
 import {
+	auditLogs,
 	dishes,
 	dishIngredients,
 	ingredients,
@@ -9,6 +10,7 @@ import {
 	listingEvents,
 	listingItems,
 	ngos,
+	notificationPreferences,
 	notifications,
 	predictionScores,
 	prepEntries,
@@ -18,6 +20,7 @@ import {
 	suppliers,
 	surplusListings,
 	tenants,
+	userPermissions,
 	users,
 } from "./schema"
 
@@ -50,7 +53,36 @@ export const ngosRelations = relations(ngos, ({ one }) => ({
 
 export const usersRelations = relations(users, ({ one, many }) => ({
 	tenant: one(tenants, { fields: [users.tenantId], references: [tenants.id] }),
+	inviter: one(users, { fields: [users.invitedByUserId], references: [users.id] }),
 	notifications: many(notifications),
+	userPermissions: many(userPermissions),
+	auditLogs: many(auditLogs),
+	notificationPreferences: many(notificationPreferences),
+}))
+
+export const userPermissionsRelations = relations(userPermissions, ({ one }) => ({
+	tenant: one(tenants, { fields: [userPermissions.tenantId], references: [tenants.id] }),
+	user: one(users, { fields: [userPermissions.userId], references: [users.id] }),
+	updatedBy: one(users, {
+		fields: [userPermissions.updatedByUserId],
+		references: [users.id],
+	}),
+}))
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+	tenant: one(tenants, { fields: [auditLogs.tenantId], references: [tenants.id] }),
+	actor: one(users, { fields: [auditLogs.actorId], references: [users.id] }),
+}))
+
+export const notificationPreferencesRelations = relations(notificationPreferences, ({ one }) => ({
+	tenant: one(tenants, {
+		fields: [notificationPreferences.tenantId],
+		references: [tenants.id],
+	}),
+	user: one(users, {
+		fields: [notificationPreferences.userId],
+		references: [users.id],
+	}),
 }))
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({

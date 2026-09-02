@@ -34,7 +34,7 @@ export const reportsRoute = new Elysia({ prefix: "/v1" })
 		"/reports",
 		async ({ session, body, set }) => {
 			const active = requireSession(session)
-			requirePermission(active, "reports.read")
+			await requirePermission(active, "reports.read")
 			const input = createReportSchema.parse(body)
 			const restaurantId = await requireRestaurantId(active)
 			const record = await enqueueReport(active, restaurantId, input)
@@ -46,19 +46,19 @@ export const reportsRoute = new Elysia({ prefix: "/v1" })
 	)
 	.get("/reports", async ({ session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 		return { reports: await listReports(active) }
 	})
 	.get("/reports/:id", async ({ session, params }) => {
 		const active = requireSession(session)
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 		const record = await getReport(active, params.id)
 		if (!record) throw new ApiError("RESOURCE_NOT_FOUND", "Report not found")
 		return record
 	})
 	.get("/reports/:id/download", async ({ session, params, request, set }) => {
 		const active = requireSession(session)
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 		const record = await getReport(active, params.id)
 		if (!record) throw new ApiError("RESOURCE_NOT_FOUND", "Report not found")
 		if (record.status !== "succeeded" || record.artifactPath === "") {

@@ -8,14 +8,21 @@ import {
 	requireSession,
 	sessionPlugin,
 } from "../../shared/session.plugin"
-import { loginSchema, registerSchema } from "./auth.schema"
+import {
+	forgotPasswordSchema,
+	loginSchema,
+	registerSchema,
+	resetPasswordSchema,
+} from "./auth.schema"
 import {
 	ACCESS_TTL_SECONDS,
 	type AuthResult,
+	completePasswordReset,
 	getMe,
 	login,
 	REFRESH_TTL_SECONDS,
 	registerTenant,
+	requestPasswordReset,
 	revokeRefresh,
 	rotateRefresh,
 } from "./auth.service"
@@ -74,5 +81,25 @@ export const authRoute = new Elysia({ prefix: "/v1/auth" })
 		if (token !== "") await revokeRefresh(token)
 		clearAuthCookies(cookie as CookieJar)
 		return { signedOut: true }
+	})
+	.post("/forgot", async ({ body, request }) => {
+		await enforceRateLimit(AUTH_ATTEMPT_RULE, clientAddress(request), systemClock.now().valueOf())
+		const input = forgotPasswordSchema.parse(body)
+		const result = await requestPasswordReset(input, systemClock)
+		if (!result.ok && result.reason === "no_user") {
+			return { ok: true }
+		}
+		if (!result.ok && result.reason === "email_not_configured") {
+			throw new ApiError(
+				"SERVICE_UNAVAILABLE",
+				"Password reset email is not configured for this environment.",
+			)
+		}
+		return { ok: true }
+	})
+	.post("/reset", async ({ body }) => {
+		const input = resetPasswordSchema.parse(body)
+		await completePasswordReset(input, systemClock)
+		return { ok: true }
 	})
 	.get("/me", async ({ session }) => getMe(requireSession(session)))

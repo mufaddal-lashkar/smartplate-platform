@@ -33,7 +33,7 @@ export const productionRoute = new Elysia()
 		"/v1/prep-entries",
 		async ({ query, session }): Promise<Collection<PrepEntryWithDish>> => {
 			const active = requireSession(session)
-			requirePermission(active, "prep.write")
+			await requirePermission(active, "prep.write")
 			const serviceDate = query.serviceDate ?? ""
 			return { items: await listPrepEntriesForDate(active, serviceDate), nextCursor: "" }
 		},
@@ -45,14 +45,14 @@ export const productionRoute = new Elysia()
 	)
 	.get("/v1/prep-entries/:id", async ({ params, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "prep.write")
+		await requirePermission(active, "prep.write")
 		return getPrepEntry(active, params.id)
 	})
 	.post(
 		"/v1/prep-entries",
 		async ({ body, request, session }): Promise<IdempotencyEnvelope<PrepResponse>> => {
 			const active = requireSession(session)
-			requirePermission(active, "prep.write")
+			await requirePermission(active, "prep.write")
 			const key = requireIdempotencyKey({ request })
 			const input = prepEntryInputSchema.parse(body)
 
@@ -67,17 +67,17 @@ export const productionRoute = new Elysia()
 	)
 	.patch("/v1/prep-entries/:id", async ({ body, params, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "prep.write")
+		await requirePermission(active, "prep.write")
 		return patchPrepEntry(active, params.id, prepEntryPatchSchema.parse(body))
 	})
 	.get("/v1/leftovers/reuse-pending", async ({ session }): Promise<Collection<ReusePending>> => {
 		const active = requireSession(session)
-		requirePermission(active, "disposition.decide")
+		await requirePermission(active, "disposition.decide")
 		return { items: await listReusePending(active), nextCursor: "" }
 	})
 	.post("/v1/leftovers/:id/reuse-confirmation", async ({ body, params, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "disposition.decide")
+		await requirePermission(active, "disposition.decide")
 		return recordReuseConfirmation(
 			active,
 			params.id,
@@ -89,7 +89,7 @@ export const productionRoute = new Elysia()
 		"/v1/leftovers/:id/reuse-confirmations",
 		async ({ params, session }): Promise<Collection<ReuseConfirmation>> => {
 			const active = requireSession(session)
-			requirePermission(active, "disposition.decide")
+			await requirePermission(active, "disposition.decide")
 			return { items: await getReuseHistory(active, params.id), nextCursor: "" }
 		},
 	)

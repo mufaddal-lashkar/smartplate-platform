@@ -118,5 +118,13 @@ Run `bun run lint` (or `bun run format` to fix).
 
 ## Status
 
-**P0 — foundation scaffold.** Services build, start, and report health. Schema, auth, and features
-land in subsequent phases.
+**Phase D — org / team / admin / NGO verification / settings / auth extras** complete and
+ready for UI testing on the `phase-d-org-admin` branch. Phases A (inventory + kitchen), B
+(marketplace + NGO pickups), and C (analytics + reports + charts) have merged to `main`.
+
+- Seeded accounts (password `smartplate-demo-2026` for all):
+  - **Platform** — `admin@smartplate.local` (super_admin)
+  - **Spice Route / Anna Tiffin / Green Bowl** — owners + staff
+  - **Akshaya Trust** — verified NGO (admin + volunteer)
+  - **Helping Hands** — NGO pending verification (admin + volunteer)
+- Try the admin queue at `/admin/verification` and the team/settings pages under each tenant.

@@ -24,14 +24,14 @@ export const listingsRoute = new Elysia()
 	.use(sessionPlugin)
 	.get("/v1/listings", async ({ session }): Promise<Collection<ListingWithEvents>> => {
 		const active = requireSession(session)
-		requirePermission(active, "reports.read")
+		await requirePermission(active, "reports.read")
 		return { items: await listListings(active), nextCursor: "" }
 	})
 	.patch(
 		"/v1/listings/:id",
 		async ({ body, params, session }): Promise<PatchResponse> => {
 			const active = requireSession(session)
-			requirePermission(active, "listing.price")
+			await requirePermission(active, "listing.price")
 			const input = {
 				pricePerUnit: body.pricePerUnit,
 				pickupUntil: body.pickupUntil ? new Date(body.pickupUntil) : null,
@@ -49,7 +49,7 @@ export const listingsRoute = new Elysia()
 		"/v1/listings/:id/cancel",
 		async ({ params, request, session }): Promise<IdempotencyEnvelope<LifecycleResponse>> => {
 			const active = requireSession(session)
-			requirePermission(active, "listing.price")
+			await requirePermission(active, "listing.price")
 			const key = requireIdempotencyKey({ request })
 			const cached = await readIdempotent<LifecycleResponse>(active.tenantId, key, {
 				listingId: params.id,
@@ -64,7 +64,7 @@ export const listingsRoute = new Elysia()
 		"/v1/listings/:id/complete",
 		async ({ params, request, session }): Promise<IdempotencyEnvelope<LifecycleResponse>> => {
 			const active = requireSession(session)
-			requirePermission(active, "listing.complete")
+			await requirePermission(active, "listing.complete")
 			const key = requireIdempotencyKey({ request })
 			const cached = await readIdempotent<LifecycleResponse>(active.tenantId, key, {
 				listingId: params.id,
@@ -79,7 +79,7 @@ export const listingsRoute = new Elysia()
 		"/v1/listings/:id/no-show",
 		async ({ params, request, session }): Promise<IdempotencyEnvelope<LifecycleResponse>> => {
 			const active = requireSession(session)
-			requirePermission(active, "listing.complete")
+			await requirePermission(active, "listing.complete")
 			const key = requireIdempotencyKey({ request })
 			const cached = await readIdempotent<LifecycleResponse>(active.tenantId, key, {
 				listingId: params.id,

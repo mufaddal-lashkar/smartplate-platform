@@ -11,22 +11,22 @@ export const catalogRoute = new Elysia()
 	.use(sessionPlugin)
 	.get("/v1/dishes", async ({ session }): Promise<Collection<Dish>> => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.read")
+		await requirePermission(active, "inventory.read")
 		return { items: await listDishes(active), nextCursor: "" }
 	})
 	.post("/v1/dishes", async ({ body, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.write")
+		await requirePermission(active, "inventory.write")
 		return createDish(active, dishInputSchema.parse(body), systemClock)
 	})
 	.patch("/v1/dishes/:id", async ({ body, params, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.write")
+		await requirePermission(active, "inventory.write")
 		return updateDish(active, params.id, dishInputSchema.parse(body))
 	})
 	.delete("/v1/dishes/:id", async ({ params, session }) => {
 		const active = requireSession(session)
-		requirePermission(active, "inventory.write")
+		await requirePermission(active, "inventory.write")
 		await archiveDish(active, params.id, systemClock)
 		return { id: params.id, archived: true }
 	})

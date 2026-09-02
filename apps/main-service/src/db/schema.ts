@@ -61,6 +61,12 @@ export const restaurants = pgTable(
 	(t) => [index("restaurants_tenant_idx").on(t.tenantId)],
 )
 
+export const ngoVerificationStatus = pgEnum("ngo_verification_status", [
+	"pending",
+	"approved",
+	"rejected",
+])
+
 export const ngos = pgTable(
 	"ngos",
 	{
@@ -75,6 +81,11 @@ export const ngos = pgTable(
 		activeFrom: text().notNull().default("00:00"),
 		activeTo: text().notNull().default("23:59"),
 		verifiedAt: timestamp({ withTimezone: true }),
+		verificationStatus: ngoVerificationStatus().notNull().default("pending"),
+		verificationSubmittedAt: timestamp({ withTimezone: true }),
+		verificationReviewedBy: uuid().references(() => users.id, { onDelete: "set null" }),
+		verificationReviewedAt: timestamp({ withTimezone: true }),
+		rejectionReason: text().notNull().default(""),
 		latitude: numeric({ precision: 9, scale: 6 }),
 		longitude: numeric({ precision: 9, scale: 6 }),
 		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -91,6 +102,8 @@ export const users = pgTable(
 		passwordHash: text().notNull(),
 		name: text().notNull(),
 		role: userRole().notNull(),
+		invitedByUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+		archivedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 	},
 	(t) => [uniqueIndex("users_email_key").on(t.email), index("users_tenant_idx").on(t.tenantId)],
@@ -524,6 +537,69 @@ export const reports = pgTable(
 	},
 	(t) => [index("reports_tenant_idx").on(t.tenantId, t.createdAt)],
 )
+
+export const userPermissions = pgTable(
+	"user_permissions",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		userId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		permission: text().notNull(),
+		granted: boolean().notNull(),
+		updatedByUserId: uuid().references(() => users.id, { onDelete: "set null" }),
+		updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [uniqueIndex("user_permissions_user_perm_key").on(t.tenantId, t.userId, t.permission)],
+)
+
+export const auditLogs = pgTable(
+	"audit_logs",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		actorId: uuid().references(() => users.id, { onDelete: "set null" }),
+		action: text().notNull(),
+		entityType: text().notNull(),
+		entityId: text().notNull(),
+		payload: jsonb().notNull().default({}),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("audit_logs_tenant_created_idx").on(t.tenantId, t.createdAt),
+		index("audit_logs_actor_idx").on(t.actorId, t.createdAt),
+	],
+)
+
+export const notificationPreferences = pgTable(
+	"notification_preferences",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		userId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		topic: text().notNull(),
+		radiusKm: numeric({ precision: 6, scale: 2 }),
+		activeFrom: text().notNull().default("00:00"),
+		activeTo: text().notNull().default("23:59"),
+		quietHoursEnabled: boolean().notNull().default(false),
+		updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [uniqueIndex("notification_preferences_user_topic_key").on(t.tenantId, t.userId, t.topic)],
+)
+
+export type UserPermission = typeof userPermissions.$inferSelect
+export type AuditLog = typeof auditLogs.$inferSelect
+export type NotificationPreference = typeof notificationPreferences.$inferSelect
+export type NgoVerificationStatusValue = (typeof ngoVerificationStatus.enumValues)[number]
 
 export type Dish = typeof dishes.$inferSelect
 export type NewDish = typeof dishes.$inferInsert
