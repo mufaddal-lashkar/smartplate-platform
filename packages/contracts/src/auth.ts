@@ -17,6 +17,15 @@ export const loginSchema = z.object({
 	password: z.string().min(1).max(200),
 })
 
+export const forgotPasswordSchema = z.object({
+	email: z.email(),
+})
+
+export const resetPasswordSchema = z.object({
+	token: z.string().min(10).max(500),
+	newPassword: z.string().min(8).max(200),
+})
+
 export const meSchema = z.object({
 	user: z.object({
 		id: z.string(),
@@ -35,6 +44,8 @@ export const meSchema = z.object({
 
 export type RegisterInput = z.infer<typeof registerSchema>
 export type LoginInput = z.infer<typeof loginSchema>
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 export type MeResponse = z.infer<typeof meSchema>
 export type TenantTypeValue = z.infer<typeof tenantTypeSchema>
 export type RoleValue = z.infer<typeof roleSchema>

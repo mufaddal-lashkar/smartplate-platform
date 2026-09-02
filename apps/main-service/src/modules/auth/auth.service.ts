@@ -1,4 +1,10 @@
-import type { LoginInput, MeResponse, RegisterInput } from "@smartplate/contracts/auth"
+import type {
+	ForgotPasswordInput,
+	LoginInput,
+	MeResponse,
+	RegisterInput,
+	ResetPasswordInput,
+} from "@smartplate/contracts/auth"
 import { sql } from "drizzle-orm"
 import { db } from "../../db/client"
 import type { Role } from "../../db/schema"
@@ -19,6 +25,7 @@ import {
 
 export const ACCESS_TTL_SECONDS = 15 * 60
 export const REFRESH_TTL_SECONDS = 30 * 24 * 60 * 60
+export const RESET_TTL_SECONDS = 60 * 60
 
 export type AuthResult = {
 	accessToken: string
@@ -67,6 +74,7 @@ const issueTokens = async (
 	)
 	await redis.sadd(familyKey(family), hash)
 	await redis.expire(familyKey(family), REFRESH_TTL_SECONDS)
+	await trackSessionForUser(session.userId, family)
 
 	return { accessToken, refreshToken, session }
 }
@@ -141,10 +149,25 @@ export const login = async (input: LoginInput, clock: Clock): Promise<AuthResult
 	const user = await findUserByEmail(input.email)
 	const invalid = new ApiError("AUTH_INVALID_CREDENTIALS", "Email or password is incorrect.")
 
-	if (user == null || user.tenantId == null) throw invalid
+	if (user == null) throw invalid
+	if (user.passwordHash === "") throw invalid
 
 	const matches = await Bun.password.verify(input.password, user.passwordHash)
 	if (!matches) throw invalid
+
+	if (user.tenantId == null) {
+		if (user.role !== "super_admin") throw invalid
+		return issueTokens(
+			{
+				tenantId: "00000000-0000-0000-0000-000000000000",
+				tenantType: "restaurant",
+				role: "super_admin",
+				userId: user.id,
+			},
+			crypto.randomUUID(),
+			clock,
+		)
+	}
 
 	const tenant = await findTenantById(user.tenantId)
 	if (tenant == null) throw invalid
@@ -175,6 +198,7 @@ export const rotateRefresh = async (token: string, clock: Clock): Promise<AuthRe
 
 	await redis.del(refreshKey(hash))
 	await redis.srem(familyKey(parsed.family), hash)
+	await untrackSessionForUser(parsed.userId, parsed.family)
 
 	const session: SessionContext = {
 		tenantId: parsed.tenantId,
@@ -196,6 +220,97 @@ export const revokeRefresh = async (token: string) => {
 
 	if (members.length > 0) await redis.del(...members.map(refreshKey))
 	await redis.del(familyKey(parsed.family))
+}
+
+export const revokeFamily = async (family: string) => {
+	const members = await redis.smembers(familyKey(family))
+	if (members.length > 0) await redis.del(...members.map(refreshKey))
+	await redis.del(familyKey(family))
+}
+
+const resetKey = (hash: string) => `password-reset:${hash}`
+
+export type PasswordResetResult =
+	| { ok: true; token: string }
+	| { ok: false; reason: "no_user" | "email_not_configured" }
+
+export const requestPasswordReset = async (
+	input: ForgotPasswordInput,
+	clock: Clock,
+): Promise<PasswordResetResult> => {
+	const user = await findUserByEmail(input.email)
+	if (user == null) return { ok: false, reason: "no_user" }
+
+	if (process.env.SMTP_URL === undefined || process.env.SMTP_URL === "") {
+		return { ok: false, reason: "email_not_configured" }
+	}
+
+	const rawToken = `${crypto.randomUUID()}.${crypto.randomUUID()}`
+	const hash = await hashToken(rawToken)
+
+	const record = {
+		userId: user.id,
+		issuedAt: clock.now().toISOString(),
+	}
+
+	await redis.set(resetKey(hash), JSON.stringify(record), "EX", RESET_TTL_SECONDS)
+
+	return { ok: true, token: rawToken }
+}
+
+const refreshUserIndexKey = (userId: string) => `refresh-by-user:${userId}`
+
+const trackSessionForUser = async (userId: string, family: string) => {
+	await redis.sadd(refreshUserIndexKey(userId), family)
+	await redis.expire(refreshUserIndexKey(userId), REFRESH_TTL_SECONDS)
+}
+
+const untrackSessionForUser = async (userId: string, family: string) => {
+	await redis.srem(refreshUserIndexKey(userId), family)
+}
+
+const findFamiliesForUser = async (userId: string): Promise<string[]> => {
+	return redis.smembers(refreshUserIndexKey(userId))
+}
+
+export const completePasswordReset = async (
+	input: ResetPasswordInput,
+	clock: Clock,
+): Promise<void> => {
+	const hash = await hashToken(input.token)
+	const stored = await redis.get(resetKey(hash))
+	if (stored == null) {
+		throw new ApiError("AUTH_TOKEN_EXPIRED", "That reset link has expired or already been used.")
+	}
+
+	const parsed = JSON.parse(stored) as { userId: string; issuedAt: string }
+	void clock
+
+	const newHash = await Bun.password.hash(input.newPassword)
+
+	const updated = await db.transaction(async (tx) => {
+		await setSessionConfig(tx, "app.role", "system")
+		const rows = await tx.execute(sql`
+				update users
+				set password_hash = ${newHash}
+				where id = ${parsed.userId}
+				returning id
+			`)
+		return rows.length > 0
+	})
+
+	if (!updated) {
+		await redis.del(resetKey(hash))
+		throw new ApiError("RESOURCE_NOT_FOUND", "Account no longer exists.")
+	}
+
+	const families = await findFamiliesForUser(parsed.userId)
+	for (const family of families) {
+		await revokeFamily(family)
+	}
+	await redis.del(refreshUserIndexKey(parsed.userId))
+
+	await redis.del(resetKey(hash))
 }
 
 export const getMe = async (ctx: SessionContext): Promise<MeResponse> => {
