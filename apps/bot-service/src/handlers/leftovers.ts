@@ -38,7 +38,7 @@ export const handleLeftovers = {
 		const lines = data.items.map(
 			(l) => `• ${escapeMd(l.dishName)} — ${l.qty} ${l.unit} (${l.storage})`,
 		)
-		return { text: `*Leftovers today*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Leftovers today\n${lines.join("\n")}` }
 	},
 
 	async record(
@@ -81,8 +81,7 @@ export const handleLeftovers = {
 			basis: string
 		}>(requireChatId(ctx), `/v1/leftovers/${leftoverId}/disposition-suggestion`)
 		return {
-			text: `*Suggestion*\nretain ${data.suggestedRetainQty}\nsell ${data.suggestedSellQty}\ndonate ${data.suggestedDonateQty}\nprice ${data.suggestedPricePerUnit}\nconfidence: ${data.confidence}`,
-			parseMode: "MarkdownV2",
+			text: `Suggestion\nretain ${data.suggestedRetainQty}\nsell ${data.suggestedSellQty}\ndonate ${data.suggestedDonateQty}\nprice ${data.suggestedPricePerUnit}\nconfidence: ${data.confidence}`,
 		}
 	},
 

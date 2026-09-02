@@ -31,7 +31,7 @@ export const handleAdmin = {
 		const lines = data.items.map(
 			(t) => `• ${escapeMd(t.name)} (${t.type}) — ${t.verificationStatus}`,
 		)
-		return { text: `*Tenants*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Tenants\n${lines.join("\n")}` }
 	},
 
 	async verificationQueue(
@@ -43,7 +43,7 @@ export const handleAdmin = {
 		const pending = data.items.filter((t) => t.type === "ngo" && t.verificationStatus === "pending")
 		if (pending.length === 0) return { text: "No NGOs awaiting verification." }
 		const lines = pending.map((t) => `• ${escapeMd(t.name)} (${t.id.slice(0, 8)})`)
-		return { text: `*Pending verifications*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Pending verifications\n${lines.join("\n")}` }
 	},
 
 	async verificationDecide(
@@ -69,6 +69,6 @@ export const handleAdmin = {
 	): Promise<Reply> {
 		const data = await callMain<Record<string, unknown>>(requireChatId(ctx), "/v1/admin/analytics")
 		const lines = Object.entries(data).map(([k, v]) => `• ${k}: ${String(v)}`)
-		return { text: `*Platform analytics*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Platform analytics\n${lines.join("\n")}` }
 	},
 }

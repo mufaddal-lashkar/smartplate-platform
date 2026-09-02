@@ -31,7 +31,7 @@ export const handleCatalog = {
 		const data = await callMain<{ items: Dish[] }>(requireChatId(ctx), "/v1/dishes")
 		if (data.items.length === 0) return { text: "No dishes in catalog." }
 		const lines = data.items.map((d) => `• ${escapeMd(d.name)} (${d.category}) — ${d.servingUnit}`)
-		return { text: `*Dishes*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Dishes\n${lines.join("\n")}` }
 	},
 
 	async dishesCreate(
@@ -64,7 +64,7 @@ export const handleCatalog = {
 		const data = await callMain<{ items: Ingredient[] }>(requireChatId(ctx), "/v1/ingredients")
 		if (data.items.length === 0) return { text: "No ingredients yet." }
 		const lines = data.items.map((i) => `• ${escapeMd(i.name)} (${i.category}) — ${i.baseUnit}`)
-		return { text: `*Ingredients*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Ingredients\n${lines.join("\n")}` }
 	},
 
 	async ingredientsCreate(
@@ -94,7 +94,7 @@ export const handleCatalog = {
 		const data = await callMain<{ items: Supplier[] }>(requireChatId(ctx), "/v1/suppliers")
 		if (data.items.length === 0) return { text: "No suppliers yet." }
 		const lines = data.items.map((s) => `• ${escapeMd(s.name)} — ${escapeMd(s.contactPhone)}`)
-		return { text: `*Suppliers*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Suppliers\n${lines.join("\n")}` }
 	},
 
 	async suppliersCreate(
@@ -125,7 +125,7 @@ export const handleCatalog = {
 		const r = await callMain<Recipe>(requireChatId(ctx), `/v1/dishes/${id}/recipe`)
 		if (r.ingredients.length === 0) return { text: "No ingredients on this recipe." }
 		const lines = r.ingredients.map((i) => `• ${i.ingredientId.slice(0, 8)}: ${i.qtyPerServing}`)
-		return { text: `*Recipe*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Recipe\n${lines.join("\n")}` }
 	},
 
 	async recipePut(

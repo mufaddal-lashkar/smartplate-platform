@@ -32,8 +32,7 @@ export const handleTenant = {
 	async get(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<Tenant>(requireChatId(ctx), "/v1/tenant")
 		return {
-			text: `*${escapeMd(data.name)}*\nType: ${data.type}\nVerified: ${data.verified ? "yes" : "no"}`,
-			parseMode: "MarkdownV2",
+			text: `${escapeMd(data.name)}\nType: ${data.type}\nVerified: ${data.verified ? "yes" : "no"}`,
 		}
 	},
 
@@ -64,7 +63,7 @@ export const handleTenant = {
 			`• Phone: ${escapeMd(r.contactPhone)}`,
 			`• Radius: ${r.browseRadiusKm} km`,
 		]
-		return { text: `*Restaurant*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Restaurant\n${lines.join("\n")}` }
 	},
 
 	async restaurantUpdate(
@@ -110,7 +109,7 @@ export const handleNgo = {
 			`• Service radius: ${n.serviceRadiusKm} km`,
 			`• Verification: ${n.verificationStatus}`,
 		]
-		return { text: `*NGO*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `NGO\n${lines.join("\n")}` }
 	},
 
 	async update(

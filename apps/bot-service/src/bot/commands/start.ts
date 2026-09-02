@@ -1,3 +1,4 @@
+import { config } from "../../config"
 import { redis } from "../../db"
 import { logger } from "../../logger"
 import { bindChat, getSession, setTenantSession, unbindChat } from "../../main-client"
@@ -29,15 +30,27 @@ export const callStart = async (ctx: BotContext): Promise<void> => {
 		const existing = await getSession(chatId)
 		if (existing != null) {
 			await sendReply(ctx, {
-				text: `You're already linked to *${existing.tenantId.slice(0, 8)}* as *${existing.role}*. Send /menu to see what you can do, or /start logout to unlink.`,
-				parseMode: "MarkdownV2",
+				text: `You're already linked to ${existing.tenantId.slice(0, 8)} as ${existing.role}. Send /menu to see what you can do, or /start logout to unlink.`,
 			})
 			return
 		}
-		ctx.session.step = "awaiting_tenant_code"
-		await sendReply(ctx, {
-			text: "Welcome to SmartPlate. To link this chat, send me your tenant code and your account email, like this:\n\n/spice-route asha@spiceroute.local",
-		})
+		try {
+			const session = await bindChat(chatId, config.defaultTenantCode, config.defaultTenantEmail)
+			await setTenantSession(session.tenantId, session)
+			await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
+			await registerTenant(session.tenantId)
+			logger.warn(
+				{ chatId, tenantId: session.tenantId, role: session.role, source: "default-bind" },
+				"chat auto-bound to default tenant user",
+			)
+			await sendReply(ctx, {
+				text: `Linked to ${config.defaultTenantCode} as ${session.role}. Send /menu to see what's available.`,
+			})
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "I couldn't link this chat."
+			logger.error({ chatId, error: message }, "default-bind failed")
+			await sendReply(ctx, { text: message })
+		}
 		return
 	}
 
@@ -69,8 +82,7 @@ export const callStart = async (ctx: BotContext): Promise<void> => {
 		await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
 		await registerTenant(session.tenantId)
 		await sendReply(ctx, {
-			text: `Linked to *${tenantCode}* as *${session.role}*. Send /menu to see what's available.`,
-			parseMode: "MarkdownV2",
+			text: `Linked to ${tenantCode} as ${session.role}. Send /menu to see what's available.`,
 		})
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "I couldn't link this chat."

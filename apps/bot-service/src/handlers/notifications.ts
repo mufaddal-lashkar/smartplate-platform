@@ -25,7 +25,7 @@ export const handleNotifications = {
 			(p) =>
 				`• ${escapeMd(p.topic)} — radius ${p.radiusKm ?? "—"} km, ${p.activeFrom}–${p.activeTo}, quiet: ${p.quietHoursEnabled ? "on" : "off"}`,
 		)
-		return { text: `*Notification preferences*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Notification preferences\n${lines.join("\n")}` }
 	},
 
 	async set(

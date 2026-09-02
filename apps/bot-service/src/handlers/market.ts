@@ -28,13 +28,13 @@ export const handleMarket = {
 	async browse(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<{ items: MarketListing[] }>(requireChatId(ctx), "/v1/market")
 		if (data.items.length === 0) return { text: "No listings nearby." }
-		return { text: `*Market*\n${data.items.map(fmt).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Market\n${data.items.map(fmt).join("\n")}` }
 	},
 
 	async mine(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<{ items: MarketListing[] }>(requireChatId(ctx), "/v1/market/mine")
 		if (data.items.length === 0) return { text: "No claims yet." }
-		return { text: `*My claims*\n${data.items.map(fmt).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `My claims\n${data.items.map(fmt).join("\n")}` }
 	},
 
 	async claim(
@@ -68,6 +68,6 @@ export const handleMarket = {
 			"/v1/market/pickups",
 		)
 		if (data.items.length === 0) return { text: "No pickups scheduled." }
-		return { text: `*Pickups*\n${data.items.map(fmt).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Pickups\n${data.items.map(fmt).join("\n")}` }
 	},
 }

@@ -23,7 +23,7 @@ export const handleUsers = {
 		const lines = data.items.map(
 			(u) => `• ${escapeMd(u.name)} (${u.email}) — ${u.role}${u.archived ? " [archived]" : ""}`,
 		)
-		return { text: `*Team*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Team\n${lines.join("\n")}` }
 	},
 
 	async invite(

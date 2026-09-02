@@ -28,7 +28,7 @@ export const handleListings = {
 	async own(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<{ items: Listing[] }>(requireChatId(ctx), "/v1/listings")
 		if (data.items.length === 0) return { text: "No active listings." }
-		return { text: `*My listings*\n${data.items.map(fmt).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `My listings\n${data.items.map(fmt).join("\n")}` }
 	},
 
 	async patch(

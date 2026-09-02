@@ -16,8 +16,7 @@ export const handleAuth = {
 			permissions: string[]
 		}>(requireChatId(ctx), "/v1/auth/me")
 		return {
-			text: `*${data.user.name}* (${data.user.email})\nRole: ${data.user.role}\nTenant: ${data.tenant.name} (${data.tenant.type}${data.tenant.verified ? ", verified" : ""})\nPermissions: ${data.permissions.length}`,
-			parseMode: "MarkdownV2",
+			text: `${data.user.name} (${data.user.email})\nRole: ${data.user.role}\nTenant: ${data.tenant.name} (${data.tenant.type}${data.tenant.verified ? ", verified" : ""})\nPermissions: ${data.permissions.length}`,
 		}
 	},
 
@@ -48,7 +47,7 @@ export const handleAuth = {
 		const lines = data.sessions.map(
 			(s) => `• ${s.family.slice(0, 8)} — ${s.role} @ ${s.tenantId.slice(0, 8)}`,
 		)
-		return { text: `*Active sessions*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Active sessions\n${lines.join("\n")}` }
 	},
 
 	async sessionsRevoke(

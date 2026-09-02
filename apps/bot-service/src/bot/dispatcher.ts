@@ -29,8 +29,7 @@ const performBind = async (
 		await registerTenant(session.tenantId)
 		ctx.session.step = ""
 		await sendReply(ctx, {
-			text: `Linked to *${tenantCode}* as *${session.role}*. Send /menu to see what's available.`,
-			parseMode: "MarkdownV2",
+			text: `Linked to ${tenantCode} as ${session.role}. Send /menu to see what's available.`,
 		})
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "I couldn't link this chat."

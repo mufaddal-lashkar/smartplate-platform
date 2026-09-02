@@ -13,6 +13,8 @@ export const config = {
 	redisUrl: required("REDIS_URL", "redis://redis:6379"),
 	requestTimeoutMs: Number(process.env.BOT_REQUEST_TIMEOUT_MS ?? 25_000),
 	logLevel: required("LOG_LEVEL", "info"),
+	defaultTenantCode: required("BOT_DEFAULT_TENANT_CODE", "spice-route"),
+	defaultTenantEmail: required("BOT_DEFAULT_TENANT_EMAIL", "asha@spiceroute.local"),
 }
 
 export type Config = typeof config

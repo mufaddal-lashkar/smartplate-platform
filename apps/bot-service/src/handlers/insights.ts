@@ -34,16 +34,15 @@ export const handleInsights = {
 			const lines: string[] = []
 			if (data.summary) lines.push(data.summary)
 			if (data.highlights && data.highlights.length > 0) {
-				lines.push("*Highlights*")
+				lines.push("Highlights")
 				lines.push(...data.highlights.map((h) => `• ${h}`))
 			}
 			if (data.recommendations && data.recommendations.length > 0) {
-				lines.push("*Recommendations*")
+				lines.push("Recommendations")
 				lines.push(...data.recommendations.map((r) => `• ${r}`))
 			}
 			return {
 				text: lines.length > 0 ? lines.join("\n") : "No insights for that range.",
-				parseMode: "MarkdownV2",
 			}
 		} catch (err) {
 			const status = (err as { status?: number }).status

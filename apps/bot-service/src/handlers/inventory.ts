@@ -40,8 +40,7 @@ export const handleInventory = {
 			(i) => `• ${escapeMd(i.ingredientName)} — ${i.totalRemaining} ${i.baseUnit}`,
 		)
 		return {
-			text: `*Stock*\n${lines.slice(0, 30).join("\n")}`,
-			parseMode: "MarkdownV2",
+			text: `Stock\n${lines.slice(0, 30).join("\n")}`,
 		}
 	},
 
@@ -65,7 +64,7 @@ export const handleInventory = {
 			(l) =>
 				`• ${escapeMd(l.ingredientName)} — ${l.qtyRemaining} ${l.baseUnit} (${l.expiryDate ?? "no date"})`,
 		)
-		return { text: `*Expiring in ${days} days*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Expiring in ${days} days\n${lines.join("\n")}` }
 	},
 
 	async purchasesCreate(

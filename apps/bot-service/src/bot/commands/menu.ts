@@ -1,7 +1,7 @@
 import { getSession } from "../../main-client"
 import type { BotContext } from "../bot"
 import { requireChatId } from "../bot"
-import { btn, row, sendReply } from "../reply"
+import { btn, md2, row, sendReply } from "../reply"
 
 export const callMenu = async (ctx: BotContext): Promise<void> => {
 	const session = await getSession(requireChatId(ctx))
@@ -56,7 +56,7 @@ export const callMenu = async (ctx: BotContext): Promise<void> => {
 	}
 
 	await sendReply(ctx, {
-		text: `Menu for *${session.role}* \\(tenant ${session.tenantId.slice(0, 8)}\\)\\. Tap an action, or send a free-form sentence\\.`,
+		text: `Menu for *${md2(session.role)}* \\(tenant ${md2(session.tenantId.slice(0, 8))}\\)\\. Tap an action, or send a free-form sentence\\.`,
 		parseMode: "MarkdownV2",
 		rows,
 	})

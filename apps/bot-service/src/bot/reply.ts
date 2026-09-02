@@ -56,3 +56,7 @@ export const btn = (label: string, data: string): InlineKeyboardButton => ({
 	text: label,
 	callback_data: data,
 })
+
+const MD2_RESERVED = /([_*[\]()~`>#+\-=|{}.!])/g
+
+export const md2 = (text: string): string => text.replace(MD2_RESERVED, "\\$1")

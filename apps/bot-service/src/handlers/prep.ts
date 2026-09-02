@@ -64,7 +64,7 @@ export const handlePrep = {
 		)
 		if (data.items.length === 0) return { text: "No pending reuse." }
 		const lines = data.items.map((l) => `• ${escapeMd(l.dishName)} — ${l.qty} ${l.unit}`)
-		return { text: `*Pending reuse*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Pending reuse\n${lines.join("\n")}` }
 	},
 
 	async reuseConfirm(

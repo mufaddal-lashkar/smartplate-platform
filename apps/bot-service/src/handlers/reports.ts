@@ -80,7 +80,7 @@ export const handleReports = {
 		const lines = data.items.map(
 			(r) => `• ${r.reportType} ${r.periodStart}..${r.periodEnd} [${r.format}] ${r.status}`,
 		)
-		return { text: `*Reports*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Reports\n${lines.join("\n")}` }
 	},
 
 	async download(

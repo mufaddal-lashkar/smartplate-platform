@@ -28,7 +28,7 @@ export const handleAnalytics = {
 			"/v1/analytics/dashboard",
 		)
 		const lines = Object.entries(data.summary).map(([k, v]) => `• ${k}: ${v}`)
-		return { text: `*Dashboard*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Dashboard\n${lines.join("\n")}` }
 	},
 
 	async waste(
@@ -43,7 +43,7 @@ export const handleAnalytics = {
 		)
 		if (data.items.length === 0) return { text: "No waste data for that period." }
 		const lines = data.items.map((w) => `• ${w.date}: ${w.kg} kg`)
-		return { text: `*Waste*\n${lines.slice(0, 30).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Waste\n${lines.slice(0, 30).join("\n")}` }
 	},
 
 	async recovery(
@@ -58,7 +58,7 @@ export const handleAnalytics = {
 		)
 		if (data.items.length === 0) return { text: "No recovery data for that period." }
 		const lines = data.items.map((r) => `• ${r.date}: ${r.recovered}`)
-		return { text: `*Recovery*\n${lines.slice(0, 30).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Recovery\n${lines.slice(0, 30).join("\n")}` }
 	},
 
 	async dishes(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
@@ -68,7 +68,7 @@ export const handleAnalytics = {
 		)
 		if (data.items.length === 0) return { text: "No dish analytics yet." }
 		const lines = data.items.map((d) => `• ${d.dishName}: ${d.kg} kg`)
-		return { text: `*Dish waste*\n${lines.slice(0, 20).join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Dish waste\n${lines.slice(0, 20).join("\n")}` }
 	},
 
 	async forecasts(
@@ -83,6 +83,6 @@ export const handleAnalytics = {
 		)
 		if (data.items.length === 0) return { text: "No forecasts yet." }
 		const lines = data.items.map((f) => `• ${f.date}: ${f.predicted}`)
-		return { text: `*Forecasts*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Forecasts\n${lines.join("\n")}` }
 	},
 }

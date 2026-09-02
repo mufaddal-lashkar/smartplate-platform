@@ -22,7 +22,7 @@ export const handlePermissions = {
 		)
 		if (data.items.length === 0) return { text: "No overrides set." }
 		const lines = data.items.map((p) => `• ${escapeMd(p.permission)} = ${p.granted}`)
-		return { text: `*Overrides*\n${lines.join("\n")}`, parseMode: "MarkdownV2" }
+		return { text: `Overrides\n${lines.join("\n")}` }
 	},
 
 	async set(
