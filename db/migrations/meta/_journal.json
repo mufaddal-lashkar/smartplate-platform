@@ -1,76 +1,83 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1785601399566,
-			"tag": "0000_workable_george_stacy",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1785601399567,
-			"tag": "0001_rls_policies",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1785601399568,
-			"tag": "0002_app_role",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1787323413277,
-			"tag": "0003_nappy_silver_samurai",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1787323413278,
-			"tag": "0004_operating_rls",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1788201341265,
-			"tag": "0005_inventory",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1788205000000,
-			"tag": "0006_marketplace",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "7",
-			"when": 1788282904826,
-			"tag": "0007_pretty_boomerang",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "7",
-			"when": 1788352900000,
-			"tag": "0008_analytics",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1789000000000,
-			"tag": "0009_reports",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785601399566,
+      "tag": "0000_workable_george_stacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785601399567,
+      "tag": "0001_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785601399568,
+      "tag": "0002_app_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787323413277,
+      "tag": "0003_nappy_silver_samurai",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787323413278,
+      "tag": "0004_operating_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788201341265,
+      "tag": "0005_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788205000000,
+      "tag": "0006_marketplace",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788282904826,
+      "tag": "0007_pretty_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788352900000,
+      "tag": "0008_analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789000000000,
+      "tag": "0009_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789100000000,
+      "tag": "0010_org_admin",
+      "breakpoints": true
+    }
+  ]
 }
