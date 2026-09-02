@@ -16,6 +16,9 @@ import { marketRoute } from "./modules/market/market.route"
 import { productionRoute } from "./modules/production/production.route"
 import { reportsDlRoute } from "./modules/reports/reports.dl.route"
 import { reportsRoute } from "./modules/reports/reports.route"
+import { ngoRoute } from "./modules/tenants/ngo.route"
+import { restaurantRoute } from "./modules/tenants/restaurant.route"
+import { tenantRoute } from "./modules/tenants/tenant.route"
 import { permissionsRoute } from "./modules/users/permissions.route"
 import { usersRoute } from "./modules/users/users.route"
 import { envelopePlugin } from "./shared/envelope.plugin"
@@ -43,6 +46,9 @@ const app = new Elysia()
 	.use(reportsDlRoute)
 	.use(usersRoute)
 	.use(permissionsRoute)
+	.use(tenantRoute)
+	.use(restaurantRoute)
+	.use(ngoRoute)
 	.listen(port)
 
 console.log(`main-service listening on :${port}`)
