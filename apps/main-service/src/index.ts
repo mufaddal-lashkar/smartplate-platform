@@ -14,6 +14,7 @@ import { inventoryRoute } from "./modules/inventory/inventory.route"
 import { leftoversRoute } from "./modules/leftovers/leftovers.route"
 import { listingsRoute } from "./modules/listings/listings.route"
 import { marketRoute } from "./modules/market/market.route"
+import { notificationPreferencesRoute } from "./modules/notifications/preferences.route"
 import { productionRoute } from "./modules/production/production.route"
 import { reportsDlRoute } from "./modules/reports/reports.dl.route"
 import { reportsRoute } from "./modules/reports/reports.route"
@@ -41,6 +42,7 @@ const app = new Elysia()
 	.use(leftoversRoute)
 	.use(listingsRoute)
 	.use(marketRoute)
+	.use(notificationPreferencesRoute)
 	.use(analyticsRoute)
 	.use(insightsRoute)
 	.use(reportsRoute)
