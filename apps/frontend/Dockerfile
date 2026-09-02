@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/main-service/package.json ./apps/main-service/
 COPY apps/frontend/package.json ./apps/frontend/
+COPY apps/bot-service/package.json ./apps/bot-service/
 COPY packages/contracts/package.json ./packages/contracts/
 COPY db/package.json ./db/
 

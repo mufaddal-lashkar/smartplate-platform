@@ -82,3 +82,11 @@ services:
       - /app/apps/frontend/node_modules
       - /app/packages/contracts/node_modules
     networks: [edge, internal]
+
+  bot-service:
+    command: ["bun", "--watch", "apps/bot-service/src/index.ts"]
+    volumes:
+      - ./apps/bot-service/src:/app/apps/bot-service/src
+      - ./packages:/app/packages
+      - /app/apps/bot-service/node_modules
+      - /app/packages/contracts/node_modules

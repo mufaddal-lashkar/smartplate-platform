@@ -1,4 +1,5 @@
 import {
+	bigint,
 	boolean,
 	date,
 	index,
@@ -600,6 +601,49 @@ export type UserPermission = typeof userPermissions.$inferSelect
 export type AuditLog = typeof auditLogs.$inferSelect
 export type NotificationPreference = typeof notificationPreferences.$inferSelect
 export type NgoVerificationStatusValue = (typeof ngoVerificationStatus.enumValues)[number]
+
+export const telegramChats = pgTable(
+	"telegram_chats",
+	{
+		chatId: bigint({ mode: "number" }).primaryKey(),
+		userId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		linkedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+		lastSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("telegram_chats_user_idx").on(t.userId),
+		index("telegram_chats_tenant_idx").on(t.tenantId),
+	],
+)
+
+export const botUserLinks = pgTable(
+	"bot_user_links",
+	{
+		id: uuid().primaryKey().defaultRandom(),
+		userId: uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		tenantId: uuid()
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		refreshTokenHash: text().notNull(),
+		chatId: bigint({ mode: "number" }),
+		createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+		lastUsedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		uniqueIndex("bot_user_links_refresh_token_key").on(t.refreshTokenHash),
+		index("bot_user_links_user_idx").on(t.userId),
+	],
+)
+
+export type TelegramChat = typeof telegramChats.$inferSelect
+export type BotUserLink = typeof botUserLinks.$inferSelect
 
 export type Dish = typeof dishes.$inferSelect
 export type NewDish = typeof dishes.$inferInsert
