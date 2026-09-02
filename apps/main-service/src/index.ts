@@ -1,4 +1,5 @@
 import { Elysia } from "elysia"
+import { adminRoute } from "./modules/admin/admin.route"
 import { analyticsRoute } from "./modules/analytics/analytics.route"
 import { authRoute } from "./modules/auth/auth.route"
 import { sessionsRoute } from "./modules/auth/sessions.route"
@@ -49,6 +50,7 @@ const app = new Elysia()
 	.use(tenantRoute)
 	.use(restaurantRoute)
 	.use(ngoRoute)
+	.use(adminRoute)
 	.listen(port)
 
 console.log(`main-service listening on :${port}`)
