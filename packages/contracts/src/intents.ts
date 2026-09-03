@@ -2,6 +2,27 @@ import type { RoleValue, TenantTypeValue } from "./auth"
 
 export type IntentTier = "core" | "shallow" | "out_of_tier"
 
+export type ParamAdapterKind = "date-range" | "date" | "dish" | "enum" | "unit" | "raw"
+
+export type ParamAdapterSpec = {
+	name: string
+	kind: ParamAdapterKind
+	required: boolean
+	options?: string[]
+}
+
+export const DESTRUCTIVE_CONFIRM_REQUIRED = new Set<string>([
+	"leftovers.dispositions",
+	"listings.cancel",
+	"listings.no_show",
+	"sessions.revoke",
+	"users.archive",
+	"auth.logout",
+	"market.release",
+	"admin.verification.decide",
+	"leftovers.disposition_suggest",
+])
+
 export type IntentSpec = {
 	intent: string
 	tier: IntentTier
@@ -14,6 +35,8 @@ export type IntentSpec = {
 	buttonLabel: string
 	command: string
 	destructive: boolean
+	requiresConfirmation: boolean
+	paramAdapters: ParamAdapterSpec[]
 }
 
 type IntentOverrides = Partial<Omit<IntentSpec, "intent" | "tier" | "tenantTypes" | "roles">>
@@ -49,6 +72,8 @@ const spec = (
 	buttonLabel: overrides.buttonLabel ?? "",
 	command: overrides.command ?? "",
 	destructive: overrides.destructive ?? false,
+	requiresConfirmation: DESTRUCTIVE_CONFIRM_REQUIRED.has(intent),
+	paramAdapters: [],
 })
 
 export const INTENTS: IntentSpec[] = [
@@ -364,6 +389,21 @@ export const menuSections = (role: RoleValue, tenantType: TenantTypeValue): Menu
 }
 
 export const commandIntents = (): IntentSpec[] => INTENTS.filter((entry) => entry.command !== "")
+
+export const adaptersForIntent = (intent: string): ParamAdapterSpec[] => {
+	const spec = BY_NAME.get(intent)
+	return spec == null ? [] : spec.paramAdapters
+}
+
+export const isDestructiveIntent = (intent: string): boolean => {
+	const spec = BY_NAME.get(intent)
+	return spec?.destructive === true
+}
+
+export const isConfirmationRequired = (intent: string): boolean => {
+	const spec = BY_NAME.get(intent)
+	return spec?.requiresConfirmation === true
+}
 
 export const WORKED_EXAMPLE_INTENTS: string[] = [
 	"prep.create",
