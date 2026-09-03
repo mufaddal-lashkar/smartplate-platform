@@ -17,10 +17,14 @@ DESTRUCTIVE_INTENTS = frozenset(
 
 
 def _coerce_params(values: dict) -> dict[str, str | float | int | bool]:
+    import json
+
     coerced: dict[str, str | float | int | bool] = {}
     for key, value in values.items():
         if isinstance(value, (bool, int, float, str)):
             coerced[key] = value
+        elif isinstance(value, (list, dict)):
+            coerced[key] = json.dumps(value)
         else:
             coerced[key] = str(value)
     return coerced

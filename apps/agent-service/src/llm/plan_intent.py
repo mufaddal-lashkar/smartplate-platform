@@ -159,6 +159,7 @@ async def _generate(contents: list[dict]) -> PlanIntentResponse:
         raise ProviderError(f"gemini returned {response.status_code}")
 
     fields = _extract_json(response.json())
+    fields = _coerce_plan_fields(fields)
     try:
         return PlanIntentResponse(
             prompt_version=PROMPT_VERSION,
@@ -168,6 +169,24 @@ async def _generate(contents: list[dict]) -> PlanIntentResponse:
         )
     except (TypeError, ValueError) as exc:
         raise ProviderError(f"gemini response failed schema validation: {exc}") from exc
+
+
+def _coerce_plan_fields(fields: dict) -> dict:
+    import json
+
+    coerced_plan = []
+    for step in fields.get("plan") or []:
+        params = step.get("params") or {}
+        new_params: dict[str, str | float | int | bool] = {}
+        for key, value in params.items():
+            if isinstance(value, (bool, int, float, str)):
+                new_params[key] = value
+            elif isinstance(value, (list, dict)):
+                new_params[key] = json.dumps(value)
+            else:
+                new_params[key] = str(value)
+        coerced_plan.append({**step, "params": new_params})
+    return {**fields, "plan": coerced_plan}
 
 
 async def gemini_plan_intent(request: PlanIntentRequest) -> PlanIntentResponse:
