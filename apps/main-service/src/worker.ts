@@ -101,6 +101,16 @@ reportsWorker.on("failed", (job, error) =>
 	console.error(`[worker] ${REPORTS_QUEUE} ${job?.id} failed`, error),
 )
 
+reportsWorker.on("completed", async (job) => {
+	if (job.name === REPORTS_SWEEP_JOB) return
+	if (job.data.tenantId === "") return
+	await publishEvent(job.data.tenantId, {
+		topic: "jobs",
+		name: "report.ready",
+		data: { reportId: job.data.reportId, status: "succeeded" },
+	})
+})
+
 await scheduleSweep()
 await reportsQueue.upsertJobScheduler(
 	REPORTS_SWEEP_JOB,

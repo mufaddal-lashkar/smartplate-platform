@@ -1,11 +1,18 @@
+import dayjs from "dayjs"
 import type { BotContext } from "../bot/bot"
 import { requireChatId } from "../bot/bot"
 import type { Reply } from "../bot/reply"
-import { logger } from "../logger"
+import { btn, row } from "../bot/reply"
+import { redis } from "../db"
+import { empty, esc, heading, italic, lines, truncate } from "../format"
 import { callMain, callMainBinary } from "../main-client"
+import { encodeAction, mintToken } from "../resolver"
 import type { DispatchContext } from "./index"
 
-type ReportRecord = {
+const REPORT_CHAT_TTL_SECONDS = 60 * 60
+const LIST_LIMIT = 10
+
+export type ReportRecord = {
 	id: string
 	reportType: "waste" | "recovery" | "dishes"
 	periodStart: string
@@ -13,92 +20,108 @@ type ReportRecord = {
 	format: "csv" | "pdf" | "xlsx"
 	status: "queued" | "running" | "succeeded" | "failed"
 	artifactPath: string
-	createdAt: string
-	finishedAt: string
 }
 
-const todayIso = () => {
-	const d = new Date()
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+const MIME: Record<string, string> = {
+	csv: "text/csv",
+	pdf: "application/pdf",
+	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
-const oneWeekAgoIso = () => {
-	const d = new Date()
-	d.setDate(d.getDate() - 7)
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+export const recordReportChat = async (chatId: number, reportId: string): Promise<void> => {
+	await redis.set(`bot:report:${reportId}`, String(chatId), "EX", REPORT_CHAT_TTL_SECONDS)
 }
 
-const sendAsDocument = async (
-	ctx: BotContext,
-	reportId: string,
-	format: "csv" | "pdf" | "xlsx",
-): Promise<Reply> => {
-	const url = `/v1/reports/${reportId}/download`
-	const bytes = await callMainBinary(requireChatId(ctx), url)
-	const mime =
-		format === "csv"
-			? "text/csv"
-			: format === "pdf"
-				? "application/pdf"
-				: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-	const filename = `${reportId}.${format}`
+export const readReportChat = async (reportId: string): Promise<number> => {
+	const raw = await redis.get(`bot:report:${reportId}`)
+	if (raw == null) return 0
+	const parsed = Number.parseInt(raw, 10)
+	return Number.isFinite(parsed) ? parsed : 0
+}
+
+export const documentFor = async (
+	chatId: number,
+	report: ReportRecord,
+): Promise<Extract<Reply, { kind: "document" }>> => {
+	const bytes = await callMainBinary(chatId, `/v1/reports/${report.id}/download`)
 	return {
 		kind: "document",
-		filename,
+		filename: `smartplate-${report.reportType}-${report.periodStart}.${report.format}`,
 		bytes,
-		mimeType: mime,
-		caption: `Report ${reportId.slice(0, 8)}`,
+		mimeType: MIME[report.format] ?? "application/octet-stream",
+		caption: `${report.reportType} report · ${report.periodStart} to ${report.periodEnd}`,
 	}
 }
 
 export const handleReports = {
 	async create(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const reportType = String(entities.reportType ?? "waste") as "waste" | "recovery" | "dishes"
-		const format = String(entities.format ?? "csv") as "csv" | "pdf" | "xlsx"
-		const from = String(entities.from ?? oneWeekAgoIso())
-		const to = String(entities.to ?? todayIso())
-		const data = await callMain<{ jobId: string; reportId: string }>(
-			requireChatId(ctx),
-			"/v1/reports",
-			{
-				method: "POST",
-				body: { reportType, from, to, format },
-			},
-		)
+		const chatId = requireChatId(ctx)
+		const reportType = entities.reportType ?? "waste"
+		const format = entities.format ?? "pdf"
+		const from = entities.from ?? dayjs().subtract(7, "day").format("YYYY-MM-DD")
+		const to = entities.to ?? dayjs().format("YYYY-MM-DD")
+		const data = await callMain<{ jobId: string; status: string }>(chatId, "/v1/reports", {
+			method: "POST",
+			body: { reportType, from, to, format },
+		})
+		await recordReportChat(chatId, data.jobId)
 		return {
-			text: `Report ${data.reportId.slice(0, 8)} queued. I'll send it to you when ready — try /report_download ${data.reportId} in a moment.`,
+			text: lines([
+				`⏳ Building your ${esc(reportType)} report for ${esc(from)} to ${esc(to)}.`,
+				italic("I'll send it here the moment it's ready."),
+			]),
 		}
 	},
 
-	async list(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
-		const data = await callMain<{ items: ReportRecord[] }>(requireChatId(ctx), "/v1/reports")
-		if (data.items.length === 0) return { text: "No reports yet." }
-		const lines = data.items.map(
-			(r) => `• ${r.reportType} ${r.periodStart}..${r.periodEnd} [${r.format}] ${r.status}`,
-		)
-		return { text: `Reports\n${lines.join("\n")}` }
+	async list(ctx: BotContext, _e: Record<string, string>, _d: DispatchContext): Promise<Reply> {
+		const chatId = requireChatId(ctx)
+		const data = await callMain<{ reports: ReportRecord[] }>(chatId, "/v1/reports")
+		if (data.reports.length === 0) {
+			return { text: empty("No reports yet.", "Send /report to build one.") }
+		}
+		const rows: string[] = []
+		const keyboard = []
+		for (const report of data.reports.slice(0, LIST_LIMIT)) {
+			rows.push(
+				`${esc(report.reportType)} · ${esc(report.periodStart)} to ${esc(report.periodEnd)} · ${esc(report.format)} · ${esc(report.status)}`,
+			)
+			if (report.status !== "succeeded") continue
+			const token = await mintToken(chatId, { reportId: report.id })
+			keyboard.push(
+				row([
+					btn(
+						`Download ${report.reportType} ${report.periodStart}`.slice(0, 60),
+						encodeAction("reports.download", token),
+					),
+				]),
+			)
+		}
+		return {
+			text: lines([heading("Your reports", data.reports.length), truncate(rows, LIST_LIMIT, "")]),
+			rows: keyboard,
+		}
 	},
 
 	async download(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const id = String(entities.reportId ?? "").trim()
-		if (id === "") return { text: "Tell me the report id." }
-		try {
-			const status = await callMain<ReportRecord>(requireChatId(ctx), `/v1/reports/${id}`)
-			if (status.status !== "succeeded") {
-				return { text: `Report ${id.slice(0, 8)} is ${status.status}. Try again later.` }
+		const chatId = requireChatId(ctx)
+		const reportId = (entities.reportId ?? "").trim()
+		const report = await callMain<ReportRecord>(chatId, `/v1/reports/${reportId}`)
+		if (report.status !== "succeeded") {
+			return {
+				text: lines([
+					esc(`That report is ${report.status}.`),
+					italic("I'll send it automatically when it's ready."),
+				]),
 			}
-			return await sendAsDocument(ctx, id, status.format)
-		} catch (err) {
-			logger.warn({ err, reportId: id }, "report download failed")
-			return { text: "Couldn't fetch the report. Try again or pick another id." }
 		}
+		return documentFor(chatId, report)
 	},
 }

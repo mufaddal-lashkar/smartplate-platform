@@ -64,3 +64,57 @@ def test_browse_intent_for_ngo():
         _request("browse listings near me", role="ngo_admin", tenant="ngo")
     )
     assert result.intent == "market.browse"
+
+
+import re
+from pathlib import Path
+from typing import get_args
+
+from fastapi.testclient import TestClient
+
+from src.main import app
+from src.schemas.parse_intent import IntentName
+
+REGISTRY = Path(__file__).resolve().parents[3] / "packages" / "contracts" / "src" / "intents.ts"
+
+
+def _registry_intent_names() -> set[str]:
+    source = REGISTRY.read_text(encoding="utf-8")
+    return set(re.findall(r'spec\(\s*"([a-z0-9_.]+)"', source))
+
+
+def test_python_literal_matches_the_typescript_registry() -> None:
+    python_names = set(get_args(IntentName)) - {"unknown"}
+    assert python_names == _registry_intent_names()
+
+
+def test_parse_intent_accepts_camel_case_from_bot_service() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/v1/parse-intent",
+        json={
+            "requestId": "chat-1-42",
+            "text": "what do i have in stock",
+            "userRole": "owner",
+            "tenantType": "restaurant",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["intent"] == "inventory.stock"
+    assert "data" not in body
+
+
+def test_parse_intent_still_accepts_snake_case() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/v1/parse-intent",
+        json={
+            "request_id": "chat-1-43",
+            "text": "what do i have in stock",
+            "user_role": "owner",
+            "tenant_type": "restaurant",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["intent"] == "inventory.stock"

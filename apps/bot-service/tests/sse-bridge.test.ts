@@ -1,77 +1,64 @@
 import { describe, expect, it } from "bun:test"
+import { canClaim, formatEvent, parseFrame } from "../src/sse-bridge"
 
-type SseFrame = { topic: string; name: string; data: Record<string, string | number> }
-
-const parseFrame = (raw: string): SseFrame | null => {
-	const lines = raw.split("\n")
-	let data = ""
-	for (const line of lines) {
-		if (line.startsWith("data: ")) data = line.slice("data: ".length).trim()
-	}
-	if (data === "") return null
-	const parsed = JSON.parse(data) as {
-		topic?: string
-		name?: string
-		data?: Record<string, string | number>
-	}
-	if (parsed.name == null || parsed.data == null) return null
-	return { topic: parsed.topic ?? "notifications", name: parsed.name, data: parsed.data }
-}
-
-const formatEvent = (event: SseFrame): string => {
-	const headline = (() => {
-		switch (event.name) {
-			case "market.created":
-				return "New listing on the market"
-			case "market.claimed":
-				return "Listing claimed"
-			case "verification.approved":
-				return "Verification approved"
-			default:
-				return event.name
-		}
-	})()
-	const summary = Object.entries(event.data)
-		.slice(0, 4)
-		.map(([k, v]) => `${k}: ${String(v)}`)
-		.join(" • ")
-	return summary === "" ? headline : `${headline}\n${summary}`
-}
-
-describe("sse-bridge parsing", () => {
-	it("parses an event with topic in the data", () => {
-		const raw =
-			'event: market.created\ndata: {"topic":"market","name":"market.created","data":{"listingId":"abc","qty":"3 kg"}}'
-		const result = parseFrame(raw)
-		expect(result).not.toBeNull()
-		expect(result?.topic).toBe("market")
-		expect(result?.name).toBe("market.created")
+describe("parseFrame", () => {
+	it("takes the event name from the event: line, not the data body", () => {
+		const raw = 'event: listing.escalated\ndata: {"listingId":"abc","entityId":"abc"}'
+		expect(parseFrame(raw)).toEqual({
+			name: "listing.escalated",
+			data: { listingId: "abc", entityId: "abc" },
+		})
 	})
 
-	it("returns null when data is empty", () => {
-		const result = parseFrame("event: ping\n\n")
-		expect(result).toBeNull()
+	it("ignores comment frames used as heartbeats", () => {
+		expect(parseFrame(": ping")).toBeNull()
+		expect(parseFrame(": connected")).toBeNull()
 	})
 
-	it("returns null when name and data are both missing", () => {
-		const result = parseFrame("event: keep-alive\ndata: {}\n\n")
-		expect(result).toBeNull()
+	it("returns null when the data line is absent", () => {
+		expect(parseFrame("event: listing.claimed")).toBeNull()
 	})
 })
 
 describe("formatEvent", () => {
-	it("renders a market.created event with summary", () => {
-		const text = formatEvent({
-			topic: "market",
-			name: "market.created",
-			data: { listingId: "abc", qty: "3 kg" },
-		})
-		expect(text).toContain("New listing on the market")
-		expect(text).toContain("listingId: abc")
+	it("renders every event name main-service actually publishes", () => {
+		const published = [
+			"listing.created",
+			"listing.escalated",
+			"listing.claimed",
+			"listing.released",
+			"listing.collected",
+			"listing.no_show",
+			"listing.cancelled",
+			"market.claim.confirmed",
+		]
+		for (const name of published) {
+			expect(formatEvent({ name, data: {} }).text).not.toBe("")
+		}
 	})
 
-	it("renders an unknown event with just the name", () => {
-		const text = formatEvent({ topic: "notifications", name: "something.odd", data: {} })
-		expect(text).toBe("something.odd")
+	it("renders an escalation as a donation headline", () => {
+		expect(formatEvent({ name: "listing.escalated", data: {} }).text).toContain("needs a home")
+	})
+
+	it("renders a claim against the seller", () => {
+		expect(formatEvent({ name: "listing.claimed", data: {} }).text).toContain("was claimed")
+	})
+
+	it("returns empty text for an event with no card, so nothing is sent", () => {
+		expect(formatEvent({ name: "listing.updated", data: {} }).text).toBe("")
+		expect(formatEvent({ name: "job.completed", data: {} }).text).toBe("")
+	})
+})
+
+describe("canClaim", () => {
+	it("lets owners and ngo admins claim", () => {
+		expect(canClaim("owner")).toBe(true)
+		expect(canClaim("ngo_admin")).toBe(true)
+	})
+
+	it("does not offer a claim button to staff or volunteers", () => {
+		expect(canClaim("staff")).toBe(false)
+		expect(canClaim("ngo_volunteer")).toBe(false)
 	})
 })

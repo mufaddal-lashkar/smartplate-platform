@@ -1,6 +1,7 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 UserRole = Literal["super_admin", "owner", "staff", "ngo_admin", "ngo_volunteer"]
 TenantType = Literal["restaurant", "ngo"]
@@ -80,6 +81,8 @@ class RecentMessage(BaseModel):
 
 
 class ParseIntentRequest(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     request_id: str
     text: str
     locale: str = "en-IN"

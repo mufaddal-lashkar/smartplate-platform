@@ -1,10 +1,12 @@
 import type { BotContext } from "../bot/bot"
 import { requireChatId } from "../bot/bot"
 import type { Reply } from "../bot/reply"
+import { bold, esc, lines } from "../format"
 import { callMain } from "../main-client"
 import type { DispatchContext } from "./index"
 
 type Tenant = { id: string; name: string; type: string; verified: boolean }
+
 type Restaurant = {
 	id: string
 	name: string
@@ -16,6 +18,7 @@ type Restaurant = {
 	contactPhone: string
 	browseRadiusKm: string
 }
+
 type Ngo = {
 	id: string
 	name: string
@@ -26,132 +29,140 @@ type Ngo = {
 	verificationStatus: string
 }
 
-const escapeMd = (text: string) => text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, (c) => `\\${c}`)
+const RESTAURANT_FIELDS = [
+	"name",
+	"addressLine",
+	"city",
+	"state",
+	"pinCode",
+	"cuisineType",
+	"gstNumber",
+	"contactPhone",
+	"logoUrl",
+	"browseRadiusKm",
+	"latitude",
+	"longitude",
+] as const
+
+const NGO_FIELDS = [
+	"name",
+	"contactPhone",
+	"activeFrom",
+	"activeTo",
+	"serviceRadiusKm",
+	"latitude",
+	"longitude",
+] as const
+
+const pick = (entities: Record<string, string>, fields: readonly string[]) => {
+	const body: Record<string, string> = {}
+	for (const field of fields) {
+		const value = entities[field] ?? ""
+		if (value !== "") body[field] = value
+	}
+	return body
+}
 
 export const handleTenant = {
-	async get(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
+	async get(ctx: BotContext, _e: Record<string, string>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<Tenant>(requireChatId(ctx), "/v1/tenant")
 		return {
-			text: `${escapeMd(data.name)}\nType: ${data.type}\nVerified: ${data.verified ? "yes" : "no"}`,
+			text: lines([
+				bold(data.name),
+				`Type — ${esc(data.type)}`,
+				`Verified — ${data.verified ? "yes" : "no"}`,
+			]),
 		}
 	},
 
 	async update(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const name = String(entities.name ?? "").trim()
-		if (name === "") return { text: "Tell me the new name." }
+		const name = (entities.name ?? "").trim()
 		const data = await callMain<Tenant>(requireChatId(ctx), "/v1/tenant", {
 			method: "PATCH",
 			body: { name },
 		})
-		return { text: `Renamed to ${escapeMd(data.name)}.` }
+		return { text: `✅ Renamed to ${bold(data.name)}.` }
 	},
 
 	async restaurantGet(
 		ctx: BotContext,
-		_e: Record<string, unknown>,
+		_e: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const r = await callMain<Restaurant>(requireChatId(ctx), "/v1/restaurant")
-		const lines = [
-			`• Name: ${escapeMd(r.name)}`,
-			`• City: ${escapeMd(r.city)}`,
-			`• Cuisine: ${escapeMd(r.cuisineType)}`,
-			`• Phone: ${escapeMd(r.contactPhone)}`,
-			`• Radius: ${r.browseRadiusKm} km`,
-		]
-		return { text: `Restaurant\n${lines.join("\n")}` }
+		const data = await callMain<Restaurant>(requireChatId(ctx), "/v1/restaurant")
+		return {
+			text: lines([
+				bold(data.name),
+				`City — ${esc(data.city)}`,
+				`Cuisine — ${esc(data.cuisineType)}`,
+				`Phone — ${esc(data.contactPhone)}`,
+				`Browse radius — ${esc(data.browseRadiusKm)} km`,
+			]),
+		}
 	},
 
 	async restaurantUpdate(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const body: Record<string, string> = {}
-		const fields = [
-			"name",
-			"addressLine",
-			"city",
-			"state",
-			"pinCode",
-			"cuisineType",
-			"gstNumber",
-			"contactPhone",
-			"logoUrl",
-			"browseRadiusKm",
-			"latitude",
-			"longitude",
-		] as const
-		for (const f of fields) {
-			const v = entities[f]
-			if (typeof v === "string" && v !== "") body[f] = v
+		const body = pick(entities, RESTAURANT_FIELDS)
+		if (Object.keys(body).length === 0) {
+			return { text: esc("Tell me at least one field to change.") }
 		}
-		if (Object.keys(body).length === 0) return { text: "Tell me at least one field to change." }
-		const r = await callMain<Restaurant>(requireChatId(ctx), "/v1/restaurant", {
+		const data = await callMain<Restaurant>(requireChatId(ctx), "/v1/restaurant", {
 			method: "PATCH",
 			body,
 		})
-		return { text: `Updated ${escapeMd(r.name)}.` }
+		return { text: `✅ Updated ${bold(data.name)}.` }
 	},
 }
 
 export const handleNgo = {
-	async get(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
-		const n = await callMain<Ngo>(requireChatId(ctx), "/v1/ngo")
-		const lines = [
-			`• Name: ${escapeMd(n.name)}`,
-			`• Phone: ${escapeMd(n.contactPhone)}`,
-			`• Active: ${n.activeFrom}–${n.activeTo}`,
-			`• Service radius: ${n.serviceRadiusKm} km`,
-			`• Verification: ${n.verificationStatus}`,
-		]
-		return { text: `NGO\n${lines.join("\n")}` }
+	async get(ctx: BotContext, _e: Record<string, string>, _d: DispatchContext): Promise<Reply> {
+		const data = await callMain<Ngo>(requireChatId(ctx), "/v1/ngo")
+		return {
+			text: lines([
+				bold(data.name),
+				`Phone — ${esc(data.contactPhone)}`,
+				`Active — ${esc(data.activeFrom)} to ${esc(data.activeTo)}`,
+				`Service radius — ${esc(data.serviceRadiusKm)} km`,
+				`Verification — ${esc(data.verificationStatus)}`,
+			]),
+		}
 	},
 
 	async update(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const body: Record<string, string> = {}
-		const fields = [
-			"name",
-			"contactPhone",
-			"activeFrom",
-			"activeTo",
-			"serviceRadiusKm",
-			"latitude",
-			"longitude",
-		] as const
-		for (const f of fields) {
-			const v = entities[f]
-			if (typeof v === "string" && v !== "") body[f] = v
+		const body = pick(entities, NGO_FIELDS)
+		if (Object.keys(body).length === 0) {
+			return { text: esc("Tell me at least one field to change.") }
 		}
-		if (Object.keys(body).length === 0) return { text: "Tell me at least one field to change." }
-		const n = await callMain<Ngo>(requireChatId(ctx), "/v1/ngo", { method: "PATCH", body })
-		return { text: `Updated ${escapeMd(n.name)}.` }
+		const data = await callMain<Ngo>(requireChatId(ctx), "/v1/ngo", { method: "PATCH", body })
+		return { text: `✅ Updated ${bold(data.name)}.` }
 	},
 
 	async submitVerification(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const registrationNo = String(entities.registrationNo ?? "").trim()
-		const contactName = String(entities.contactName ?? "").trim()
-		const contactPhone = String(entities.contactPhone ?? "").trim()
-		if (!registrationNo || !contactName || !contactPhone) {
-			return { text: "I need registration number, contact name, and phone." }
-		}
-		const notes = String(entities.notes ?? "")
 		await callMain(requireChatId(ctx), "/v1/ngo/verification", {
 			method: "POST",
-			body: { registrationNo, contactName, contactPhone, notes },
+			body: {
+				registrationNo: (entities.registrationNo ?? "").trim(),
+				contactName: (entities.contactName ?? "").trim(),
+				contactPhone: (entities.contactPhone ?? "").trim(),
+				notes: entities.notes ?? "",
+			},
 		})
-		return { text: "Verification request submitted." }
+		return { text: esc("✅ Verification request submitted. An admin will review it.") }
 	},
 }

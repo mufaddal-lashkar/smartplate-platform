@@ -3,7 +3,8 @@ import type { SessionContext } from "../../db/tx"
 import { ApiError } from "../../shared/api-error"
 import type { Clock } from "../../shared/clock"
 import { createRedis } from "../../shared/redis"
-import { publishEvent } from "../events/events.service"
+import { type DomainEvent, publishEvent, publishToTenants } from "../events/events.service"
+import { selectTenantsNearListing } from "../market/market.queries"
 import {
 	cancelListing,
 	completeListing,
@@ -49,11 +50,13 @@ export const escalateListing = async (
 	const escalated = await escalateOpenB2b(listingId, tenantId, clock.now())
 	if (!escalated) return false
 
-	await publishEvent(tenantId, {
+	const event: DomainEvent = {
 		topic: "market",
 		name: "listing.escalated",
-		data: { listingId },
-	})
+		data: { listingId, entityId: listingId },
+	}
+	await publishEvent(tenantId, event)
+	await publishToTenants(await selectTenantsNearListing(listingId, "ngo"), event)
 	return true
 }
 
@@ -121,13 +124,17 @@ export const completeOwnListing = async (
 	listingId: string,
 	clock: Clock,
 ): Promise<{ listingId: string }> => {
-	const ok = await completeListing(ctx, listingId, clock.now())
-	if (!ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be completed.")
-	await publishEvent(ctx.tenantId, {
+	const result = await completeListing(ctx, listingId, clock.now())
+	if (!result.ok) throw new ApiError("RESOURCE_NOT_FOUND", "That listing cannot be completed.")
+	const event: DomainEvent = {
 		topic: "market",
 		name: "listing.collected",
 		data: { listingId, entityId: listingId },
-	})
+	}
+	await publishEvent(ctx.tenantId, event)
+	if (result.ownerTenantId !== "" && result.ownerTenantId !== ctx.tenantId) {
+		await publishEvent(result.ownerTenantId, event)
+	}
 	return { listingId }
 }
 

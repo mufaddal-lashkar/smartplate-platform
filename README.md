@@ -162,33 +162,60 @@ parsing to agent-service's `/v1/parse-intent`, and subscribes to the existing
 
 1. Create a bot via **@BotFather** and copy the token into `.env` as
    `TELEGRAM_BOT_TOKEN`.
-2. From your Telegram client, send `/start <tenant_code>` to the bot. The
-   tenant code is the kebab-cased tenant name visible on `/settings` (e.g.
-   `spice-route`, `akshaya-trust`).
-3. The bot exchanges a one-time password for a bound refresh token, then
-   issues per-chat access tokens in the same JWT shape the browser uses.
-   From then on, every message you send is processed as *that user in that
-   tenant* — RBAC and audit apply normally.
+2. Send `/start`. The bot replies with a persona picker — tap one:
 
-### Free-form vs menu
+   | Persona | Tenant | Why it exists |
+   |---|---|---|
+   | 🍛 **Asha** — owner | `spice-route` | The only tenant with 90 days of history and a full catalog. Every kitchen and analytics flow starts here. |
+   | 🤝 **Ravi** — NGO admin | `akshaya-trust` | A verified NGO. Receives escalated donations, claims them, completes the pickup. |
+   | 🍽 **Meera** — owner | `anna-tiffin` | A second restaurant, so someone can buy Spice Route's B2B surplus — a tenant cannot claim its own listing. |
 
-Every inbound text message is first sent to agent-service `/v1/parse-intent`
-(Gemini). If parsing fails or the agent is down, a deterministic regex
-fallback handles the obvious cases (numbers, dish names, "list", "show
-yesterday"). When the model returns a confidence below the floor, the bot
-asks you for the missing field.
+3. `/start <tenant-code> <email>` still binds any other seeded account
+   directly, and `/start logout` unlinks the chat.
 
-Inline keyboards carry the destructive actions (claim, cancel, complete).
-The 5/hour notification cap is enforced by main-service — bot-service
-listens on the post-cap SSE stream and never re-implements the cap.
+The bot exchanges a one-time code for a bound refresh token, then issues
+per-chat access tokens in the same JWT shape the browser uses. Every message
+is processed as *that user in that tenant* — RBAC and RLS apply normally.
+
+### How it decides what you meant
+
+One declarative intent registry in `packages/contracts/src/intents.ts` is the
+single source of truth: it drives `/menu` composition, slash-command
+registration, callback routing, the missing-field prompt, and role visibility.
+Adding an intent is one registry entry plus one handler.
+
+Every inbound text message goes to agent-service `/v1/parse-intent` (Gemini).
+If agent-service is unreachable, a small local keyword table covers the common
+phrasings. There is **no multi-turn wizard**: a message missing a required
+field comes back with a copy-pasteable example, and an action that needs an id
+falls back to its own list — "claim something" renders the open listings, each
+row carrying a `Claim` button.
+
+Every list row carries an inline button addressed by a short Redis-backed
+token, so `callback_data` stays inside Telegram's 64-byte cap and a stale
+button refuses rather than acting on a listing someone else already took.
+Irreversible actions (cancel, no-show, release, archive, unlink) confirm first.
+
+### Notifications
+
+bot-service subscribes to `/v1/events` per bound tenant and turns each event
+into a card. main-service fans `listing.created` (donations) and
+`listing.escalated` out to nearby eligible tenants, so an NGO is actually told
+when surplus needs a home. Card buttons are gated by the *recipient's* role —
+a seller sees the claim notice without a `Claim` button on her own listing.
+The 5/hour cap and 24h dedup stay in main-service; bot-service listens on the
+post-cap stream and never re-implements either.
+
+Reports are async: `/report` queues one and the finished document is pushed
+back to the chat that asked for it.
 
 ### Demo personas
 
-| Persona | Tenant | Try |
-|---|---|---|
-| Asha — owner | `spice-route` | "show today's prep entries", "log 3 kg of basmati rice used", "leftover 4 portions of paneer butter masala", "weekly recovery report" |
-| Priya — NGO admin | `akshaya-trust` | "browse listings near me", tap to claim, "we picked it up" |
-| Demo super_admin | (synthetic) | "pending verifications", tap to approve |
+| Persona | Try |
+|---|---|
+| Asha — owner | "what do i have in stock", "show me leftovers", tap **What should I do?**, tap **Commit this split**, "dashboard", "/report" |
+| Ravi — NGO admin | "browse the market", tap **Claim**, "/pickups", tap **Picked it up** |
+| Meera — owner | "browse the market" to buy Spice Route's B2B surplus |
 
 Bot-side files: `apps/bot-service/` (`src/bot/` for the dispatcher and reply
 shapes, `src/handlers/` for one module per domain, `src/sse-bridge.ts` for

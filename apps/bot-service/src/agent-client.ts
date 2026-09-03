@@ -33,6 +33,5 @@ export const callAgent = async (
 		signal: AbortSignal.timeout(config.requestTimeoutMs),
 	}).catch(() => null)
 	if (response == null || !response.ok) return null
-	const body = (await response.json()) as { data?: ParseIntentResponse }
-	return body.data ?? null
+	return (await response.json().catch(() => null)) as ParseIntentResponse | null
 }

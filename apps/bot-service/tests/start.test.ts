@@ -1,15 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
-
-const originalDefaultCode = process.env.BOT_DEFAULT_TENANT_CODE
-const originalDefaultEmail = process.env.BOT_DEFAULT_TENANT_EMAIL
-
-afterEach(() => {
-	if (originalDefaultCode == null) delete process.env.BOT_DEFAULT_TENANT_CODE
-	else process.env.BOT_DEFAULT_TENANT_CODE = originalDefaultCode
-	if (originalDefaultEmail == null) delete process.env.BOT_DEFAULT_TENANT_EMAIL
-	else process.env.BOT_DEFAULT_TENANT_EMAIL = originalDefaultEmail
-	mock.restore()
-})
+import type { InlineKeyboardButton } from "grammy/types"
 
 type BotSession = import("../src/main-client").BotSession
 
@@ -23,28 +13,17 @@ const fakeSession: BotSession = {
 	expiresAt: 0,
 }
 
-const fakeNgoSession: BotSession = {
-	tenantId: "tenant-uuid-2",
-	userId: "user-uuid-2",
-	role: "ngo_admin",
-	tenantType: "ngo",
-	accessToken: "at",
-	refreshToken: "rt",
-	expiresAt: 0,
-}
-
 const sent: Array<{ chatId: number; tenantCode: string; email: string }> = []
 const removed: number[] = []
-let getSessionResult: BotSession | null = fakeSession
+let getSessionResult: BotSession | null = null
 let sentReplyText = ""
-let currentBindResult: BotSession = fakeSession
+let sentRows: InlineKeyboardButton[][] = []
 
 mock.module("../src/main-client", () => ({
 	bindChat: async (chatId: number, tenantCode: string, email: string) => {
 		sent.push({ chatId, tenantCode, email })
-		return currentBindResult
+		return fakeSession
 	},
-	refreshSession: async () => currentBindResult,
 	getSession: async () => getSessionResult,
 	setTenantSession: async () => undefined,
 	unbindChat: async (chatId: number) => {
@@ -52,9 +31,6 @@ mock.module("../src/main-client", () => ({
 	},
 	callMain: async () => {
 		throw new Error("callMain not stubbed in start test")
-	},
-	callMainRaw: async () => {
-		throw new Error("callMainRaw not stubbed in start test")
 	},
 	callMainBinary: async () => {
 		throw new Error("callMainBinary not stubbed in start test")
@@ -66,95 +42,126 @@ mock.module("../src/main-client", () => ({
 }))
 
 mock.module("../src/db", () => ({
-	redis: { sadd: async () => 1, srem: async () => 1, get: async () => null, set: async () => "OK" },
+	redis: {
+		sadd: async () => 1,
+		srem: async () => 1,
+		get: async () => null,
+		set: async () => "OK",
+		del: async () => 1,
+	},
 }))
 
 mock.module("../src/sse-bridge", () => ({
 	registerTenant: async () => undefined,
 }))
 
+mock.module("../src/resolver", () => ({
+	mintToken: async () => "tok12345",
+	encodeAction: (intent: string, token: string) => `a:${intent}:${token}`,
+}))
+
 mock.module("../src/bot/reply", () => ({
-	md2: (s: string) => s,
-	sendReply: async (_ctx: unknown, reply: { text: string; parseMode?: string }) => {
+	sendReply: async (_ctx: unknown, reply: { text: string; rows?: InlineKeyboardButton[][] }) => {
 		sentReplyText = reply.text
+		sentRows = reply.rows ?? []
+		return 1
 	},
-	editReply: async () => null,
-	row: (b: unknown[]) => b,
+	editReply: async () => undefined,
+	row: (buttons: InlineKeyboardButton[]) => buttons,
 	btn: (label: string, data: string) => ({ text: label, callback_data: data }),
 }))
 
-const { callStart } = await import("../src/bot/commands/start")
-const { config } = await import("../src/config")
+const { bindPersona, callStart } = await import("../src/bot/commands/start")
+const { PERSONAS } = await import("../src/config")
 
-const makeCtx = (text: string): import("../src/bot/bot").BotContext => {
-	return {
+const makeCtx = (text: string): import("../src/bot/bot").BotContext =>
+	({
 		chatId: 11111,
 		update: { update_id: 1 },
 		message: { text },
-		session: { step: "", pending: {}, lastBotMessageId: 0 },
-	} as unknown as import("../src/bot/bot").BotContext
-}
+	}) as unknown as import("../src/bot/bot").BotContext
 
-describe("callStart default-bind", () => {
-	beforeEach(() => {
-		sent.length = 0
-		removed.length = 0
-		sentReplyText = ""
-		getSessionResult = null
-		currentBindResult = fakeSession
-		delete process.env.BOT_DEFAULT_TENANT_CODE
-		delete process.env.BOT_DEFAULT_TENANT_EMAIL
+afterEach(() => {
+	mock.restore()
+})
+
+beforeEach(() => {
+	sent.length = 0
+	removed.length = 0
+	sentReplyText = ""
+	sentRows = []
+	getSessionResult = null
+})
+
+describe("persona configuration", () => {
+	it("offers exactly Asha, Ravi and Meera", () => {
+		expect(PERSONAS.map((persona) => persona.key)).toEqual(["asha", "ravi", "meera"])
 	})
 
-	it("config defaults to spice-route asha@spiceroute.local", () => {
-		expect(config.defaultTenantCode).toBe("spice-route")
-		expect(config.defaultTenantEmail).toBe("asha@spiceroute.local")
-	})
-
-	it("auto-binds a fresh /start to spice-route asha@spiceroute.local by default", async () => {
-		const ctx = makeCtx("/start")
-		await callStart(ctx)
-
-		expect(sent).toHaveLength(1)
-		expect(sent[0]).toEqual({
-			chatId: 11111,
-			tenantCode: "spice-route",
-			email: "asha@spiceroute.local",
-		})
-		expect(sentReplyText).toContain("Linked to")
-	})
-
-	it("does not auto-bind when /start logout is requested", async () => {
-		const ctx = makeCtx("/start logout")
-		await callStart(ctx)
-
-		expect(sent).toHaveLength(0)
-		expect(removed).toEqual([11111])
-	})
-
-	it("replies with the existing session when already bound, instead of rebinding", async () => {
-		getSessionResult = fakeSession
-		const ctx = makeCtx("/start")
-		await callStart(ctx)
-
-		expect(sent).toHaveLength(0)
-		expect(sentReplyText).toContain("already linked")
+	it("points each persona at a seeded tenant and email", () => {
+		for (const persona of PERSONAS) {
+			expect(persona.tenantCode).toMatch(/^[a-z0-9-]+$/)
+			expect(persona.email).toContain("@")
+			expect(persona.blurb).not.toBe("")
+		}
 	})
 })
 
-describe("callStart with env overrides", () => {
-	beforeEach(() => {
-		sent.length = 0
-		removed.length = 0
-		sentReplyText = ""
-		getSessionResult = null
-		currentBindResult = fakeNgoSession
+describe("callStart persona picker", () => {
+	it("offers one button per persona on a bare /start with no session", async () => {
+		await callStart(makeCtx("/start"))
+		expect(sent).toHaveLength(0)
+		expect(sentReplyText).toContain("Who are you today")
+		const labels = sentRows.flat().map((button) => button.text)
+		expect(labels).toHaveLength(3)
+		expect(labels.some((label) => label.includes("Asha"))).toBe(true)
+		expect(labels.some((label) => label.includes("Ravi"))).toBe(true)
+		expect(labels.some((label) => label.includes("Meera"))).toBe(true)
 	})
 
-	it("re-exports the env-var override contract via .env.example", () => {
-		expect(typeof config.defaultTenantCode).toBe("string")
-		expect(typeof config.defaultTenantEmail).toBe("string")
-		expect(config.defaultTenantCode.length).toBeGreaterThan(0)
-		expect(config.defaultTenantEmail).toContain("@")
+	it("binds the chosen persona when its callback fires", async () => {
+		await bindPersona(makeCtx("/start"), 11111, "asha")
+		expect(sent).toEqual([
+			{ chatId: 11111, tenantCode: "spice-route", email: "asha@spiceroute.local" },
+		])
+	})
+
+	it("binds the NGO persona to akshaya-trust", async () => {
+		await bindPersona(makeCtx("/start"), 11111, "ravi")
+		expect(sent).toEqual([
+			{ chatId: 11111, tenantCode: "akshaya-trust", email: "ravi@akshaya.local" },
+		])
+	})
+
+	it("rejects an unknown persona key without binding", async () => {
+		await bindPersona(makeCtx("/start"), 11111, "nobody")
+		expect(sent).toHaveLength(0)
+		expect(sentReplyText).toContain("don't know that persona")
+	})
+
+	it("still honours an explicit /start <tenant> <email>", async () => {
+		await callStart(makeCtx("/start green-bowl karthik@greenbowl.local"))
+		expect(sent).toEqual([
+			{ chatId: 11111, tenantCode: "green-bowl", email: "karthik@greenbowl.local" },
+		])
+	})
+
+	it("rejects a malformed /start argument", async () => {
+		await callStart(makeCtx("/start Not A Code"))
+		expect(sent).toHaveLength(0)
+		expect(sentReplyText).toContain("tenant and email")
+	})
+
+	it("does not re-bind when already linked", async () => {
+		getSessionResult = fakeSession
+		await callStart(makeCtx("/start"))
+		expect(sent).toHaveLength(0)
+		expect(sentReplyText).toContain("already linked")
+	})
+
+	it("unlinks on /start logout", async () => {
+		await callStart(makeCtx("/start logout"))
+		expect(sent).toHaveLength(0)
+		expect(removed).toEqual([11111])
 	})
 })

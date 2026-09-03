@@ -1,11 +1,13 @@
-import { callAgent } from "../agent-client"
-import { dispatchIntent } from "../handlers"
+import { findIntent } from "@smartplate/contracts/intents"
+import { esc, lines } from "../format"
 import { logger } from "../logger"
 import { getSession } from "../main-client"
-import { parseFallback } from "../parse-fallback"
+import { decodeCallback, encodeConfirm, readToken } from "../resolver"
 import type { BotContext } from "./bot"
 import { requireChatId } from "./bot"
-import { editReply, type Reply, sendReply } from "./reply"
+import { bindPersona, PERSONA_PREFIX } from "./commands/start"
+import { run } from "./dispatcher"
+import { btn, row, sendReply } from "./reply"
 
 export const callCallback = async (ctx: BotContext): Promise<void> => {
 	const data = ctx.callbackQuery?.data
@@ -13,45 +15,57 @@ export const callCallback = async (ctx: BotContext): Promise<void> => {
 	const chatId = requireChatId(ctx)
 
 	if (data === "noop") {
-		await ctx.answerCallbackQuery({ text: "Already handled." })
+		await ctx.answerCallbackQuery()
+		return
+	}
+
+	if (data.startsWith(PERSONA_PREFIX)) {
+		await ctx.answerCallbackQuery()
+		await bindPersona(ctx, chatId, data.slice(PERSONA_PREFIX.length))
+		return
+	}
+
+	const target = decodeCallback(data)
+	if (target == null) {
+		await ctx.answerCallbackQuery({ text: "I don't recognise that button." })
 		return
 	}
 
 	const session = await getSession(chatId)
 	if (session == null) {
-		await ctx.answerCallbackQuery({ text: "Not linked." })
+		await ctx.answerCallbackQuery({ text: "Send /start to link this chat first." })
 		return
 	}
 
-	const actionMatch = data.match(/^act:([a-z_.]+)$/)
-	if (actionMatch != null) {
-		const intent = actionMatch[1]
-		const requestId = `${chatId}-cb-${ctx.update.update_id}`
-		const parsed = await callAgent({
-			requestId,
-			text: intent,
-			userRole: session.role as "super_admin" | "owner" | "staff" | "ngo_admin" | "ngo_volunteer",
-			tenantType: session.tenantType,
+	const spec = findIntent(target.intent)
+	if (spec == null) {
+		await ctx.answerCallbackQuery({ text: "That action is no longer available." })
+		return
+	}
+
+	const entities = await readToken(chatId, target.token)
+	if (entities == null) {
+		await ctx.answerCallbackQuery({ text: "That list is stale — pull a fresh one." })
+		await sendReply(ctx, { text: esc("That list has expired. Send /menu for a fresh one.") })
+		return
+	}
+
+	if (spec.destructive && target.kind === "action") {
+		await ctx.answerCallbackQuery()
+		const label = spec.buttonLabel === "" ? "That action" : spec.buttonLabel
+		await sendReply(ctx, {
+			text: lines([esc(`${label} can't be undone.`), esc("Go ahead?")]),
+			rows: [
+				row([
+					btn("Yes, do it", encodeConfirm(spec.intent, target.token)),
+					btn("No, cancel", "noop"),
+				]),
+			],
 		})
-		const intent_name = parsed?.intent ?? parseFallback(intent).intent
-		const entities = parsed?.entities ?? {}
-		try {
-			const reply: Reply = await dispatchIntent(ctx, intent_name, entities, {
-				idempotencyKey: `bot:cb:${ctx.update.update_id}`,
-			})
-			if (ctx.callbackQuery?.message?.message_id != null) {
-				await editReply(ctx, ctx.callbackQuery.message.message_id, reply)
-			} else {
-				await sendReply(ctx, reply)
-			}
-			await ctx.answerCallbackQuery()
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "Handler failed."
-			logger.warn({ chatId, intent, error: message }, "callback handler error")
-			await ctx.answerCallbackQuery({ text: message, show_alert: true })
-		}
 		return
 	}
 
-	await ctx.answerCallbackQuery({ text: "Unknown action." })
+	await ctx.answerCallbackQuery()
+	logger.info({ chatId, intent: spec.intent, kind: target.kind }, "callback dispatched")
+	await run(ctx, chatId, spec.intent, entities, `bot:cb:${chatId}:${ctx.update.update_id}`)
 }
