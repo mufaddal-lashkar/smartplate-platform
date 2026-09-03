@@ -79,6 +79,30 @@ describe("startSession", () => {
 		expect(session.tenantId).toBe(tenantId)
 	})
 
+	it("re-issues when the cached access token's JWT is expired", async () => {
+		chatId = Math.floor(Math.random() * 1e15)
+		const bind = await bindChat({ chatId, tenantCode, email })
+
+		const first = await startSession("", { refreshToken: bind.refreshToken })
+		expect(first.accessToken.split(".")).toHaveLength(3)
+
+		const { createHash } = await import("node:crypto")
+		const { redis } = await import("../src/shared/redis")
+		const linkKey = `bot:link:${createHash("sha256").update(bind.refreshToken).digest("hex")}`
+		const cached = JSON.parse((await redis.get(linkKey)) ?? "{}") as Record<string, string | number>
+		const expired = `${first.accessToken.split(".").slice(0, 2).join(".")}.AAAA`
+		await redis.set(
+			linkKey,
+			JSON.stringify({ ...cached, access_token: expired }),
+			"EX",
+			60 * 60 * 24 * 30,
+		)
+
+		const second = await startSession("", { refreshToken: bind.refreshToken })
+		expect(second.accessToken).not.toBe(first.accessToken)
+		expect(second.accessToken.split(".")).toHaveLength(3)
+	})
+
 	it("rejects an unknown refresh token", async () => {
 		await expect(startSession("", { refreshToken: "deadbeef.deadbeef" })).rejects.toMatchObject({
 			code: "AUTH_TOKEN_EXPIRED",

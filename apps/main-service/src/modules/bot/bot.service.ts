@@ -5,7 +5,7 @@ import { botUserLinks, tenants, users } from "../../db/schema"
 import { setSessionConfig, withSystem } from "../../db/tx"
 import { ApiError } from "../../shared/api-error"
 import { systemClock } from "../../shared/clock"
-import { signAccessToken } from "../../shared/jwt"
+import { signAccessToken, verifyAccessToken } from "../../shared/jwt"
 import { redis } from "../../shared/redis"
 import type { BindInput, StartSessionInput } from "./bot.schema"
 
@@ -153,6 +153,11 @@ const issueAccessForLink = async (
 	return { accessToken, expiresIn: ACCESS_TTL_SECONDS }
 }
 
+const cachedTokenIsLive = async (token: string): Promise<boolean> => {
+	const claims = await verifyAccessToken(token, jwtSecret(), systemClock.now().unix())
+	return claims != null
+}
+
 export const startSession = async (
 	_refresh: string,
 	input: StartSessionInput,
@@ -163,15 +168,18 @@ export const startSession = async (
 	const cached = await redis.get(linkKey)
 	if (cached != null) {
 		const parsed = sessionResponseSchema.parse(JSON.parse(cached))
-		return {
-			accessToken: parsed.access_token,
-			refreshToken: input.refreshToken,
-			expiresIn: parsed.expires_in,
-			tenantId: parsed.tenant_id,
-			tenantType: parsed.tenant_type,
-			role: parsed.role,
-			userId: parsed.user_id,
+		if (await cachedTokenIsLive(parsed.access_token)) {
+			return {
+				accessToken: parsed.access_token,
+				refreshToken: input.refreshToken,
+				expiresIn: parsed.expires_in,
+				tenantId: parsed.tenant_id,
+				tenantType: parsed.tenant_type,
+				role: parsed.role,
+				userId: parsed.user_id,
+			}
 		}
+		await redis.del(linkKey)
 	}
 
 	const link = await withSystem(async (tx) => {

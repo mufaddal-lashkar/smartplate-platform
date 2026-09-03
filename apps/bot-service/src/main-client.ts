@@ -85,6 +85,27 @@ const exchangeRefresh = async (refreshToken: string): Promise<BotSession> => {
 	return toSession(data, refreshToken)
 }
 
+const decodeExp = (token: string): number | null => {
+	const parts = token.split(".")
+	if (parts.length !== 3) return null
+	try {
+		const payload = JSON.parse(
+			Buffer.from((parts[1] ?? "").replace(/-/g, "+").replace(/_/g, "/"), "base64").toString(
+				"utf8",
+			),
+		) as { exp?: number }
+		return typeof payload.exp === "number" ? payload.exp : null
+	} catch {
+		return null
+	}
+}
+
+const isJwtLive = (session: BotSession): boolean => {
+	const exp = decodeExp(session.accessToken)
+	if (exp == null) return true
+	return exp > Math.floor(Date.now() / 1000)
+}
+
 const writeSession = async (chatId: number, session: BotSession): Promise<void> => {
 	await redis.set(sessionKey(chatId), JSON.stringify(session), "EX", 30 * 24 * 60 * 60)
 }
@@ -112,7 +133,7 @@ export const getSession = async (chatId: number): Promise<BotSession | null> => 
 	const raw = await redis.get(sessionKey(chatId))
 	if (raw == null) return null
 	const existing = JSON.parse(raw) as BotSession
-	if (!isExpiringSoon(existing)) return existing
+	if (!isExpiringSoon(existing) && isJwtLive(existing)) return existing
 	return refreshSession(chatId, existing.refreshToken)
 }
 
@@ -128,7 +149,14 @@ export const getTenantSession = async (tenantId: string): Promise<BotSession | n
 	const raw = await redis.get(tenantSessionKey(tenantId))
 	if (raw == null) return null
 	const session = JSON.parse(raw) as BotSession
-	if (!isExpiringSoon(session)) return session
+	if (!isExpiringSoon(session) && isJwtLive(session)) return session
+	return refreshTenantSession(tenantId, session.refreshToken)
+}
+
+export const refreshTenantSessionNow = async (tenantId: string): Promise<BotSession | null> => {
+	const raw = await redis.get(tenantSessionKey(tenantId))
+	if (raw == null) return null
+	const session = JSON.parse(raw) as BotSession
 	return refreshTenantSession(tenantId, session.refreshToken)
 }
 

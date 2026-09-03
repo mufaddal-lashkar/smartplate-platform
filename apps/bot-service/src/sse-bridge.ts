@@ -7,7 +7,7 @@ import { bold, italic, lines, qty } from "./format"
 import { type MarketListingRow, marketRow } from "./handlers/market"
 import { readReportChat } from "./handlers/reports"
 import { logger } from "./logger"
-import { callMain, getSession, getTenantSession } from "./main-client"
+import { callMain, getSession, getTenantSession, refreshTenantSessionNow } from "./main-client"
 import { encodeAction, mintToken } from "./resolver"
 
 const RECONNECT_MS = [1000, 2000, 4000, 8000, 16000, 30000, 60000]
@@ -173,6 +173,15 @@ const runTenantConnection = async (
 				accept: "text/event-stream",
 			},
 		})
+		if (res.status === 401) {
+			const refreshed = await refreshTenantSessionNow(tenantId).catch((err: Error) => {
+				logger.warn({ err, tenantId }, "tenant session refresh failed")
+				return null
+			})
+			if (refreshed == null) throw new Error("SSE connect failed: 401")
+			void runTenantConnection(tenantId, opts, attempt)
+			return
+		}
 		if (!res.ok || res.body == null) throw new Error(`SSE connect failed: ${res.status}`)
 		logger.info({ tenantId }, "sse connected")
 
