@@ -1,18 +1,72 @@
-import { config } from "../../config"
+import { config, PERSONAS } from "../../config"
 import { redis } from "../../db"
+import { bold, esc, italic, lines } from "../../format"
 import { logger } from "../../logger"
 import { bindChat, getSession, setTenantSession, unbindChat } from "../../main-client"
 import { isValidTenantCode } from "../../parse-fallback"
+import { encodeAction, mintToken } from "../../resolver"
 import { registerTenant } from "../../sse-bridge"
 import type { BotContext } from "../bot"
 import { requireChatId } from "../bot"
-import { sendReply } from "../reply"
+import { btn, row, sendReply } from "../reply"
+
+export const PERSONA_PREFIX = "p:"
+
+export const personaData = (key: string): string => `${PERSONA_PREFIX}${key}`
+
+export const linkChat = async (
+	ctx: BotContext,
+	chatId: number,
+	tenantCode: string,
+	email: string,
+	blurb: string,
+): Promise<void> => {
+	try {
+		const session = await bindChat(chatId, tenantCode, email)
+		await setTenantSession(session.tenantId, session)
+		await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
+		await registerTenant(session.tenantId)
+		const token = await mintToken(chatId, {})
+		await sendReply(ctx, {
+			text: lines([
+				`✅ You're signed in to ${bold(tenantCode)} as ${esc(session.role)}.`,
+				blurb === "" ? "" : italic(blurb),
+			]),
+			rows: [row([btn("Show me the menu", encodeAction("menu", token))])],
+		})
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "I couldn't link this chat."
+		logger.warn({ chatId, tenantCode, error: message }, "bind failed")
+		await sendReply(ctx, {
+			text: esc("I couldn't link this chat to that account. Send /start to pick a persona."),
+		})
+	}
+}
+
+export const bindPersona = async (ctx: BotContext, chatId: number, key: string): Promise<void> => {
+	const persona = PERSONAS.find((entry) => entry.key === key)
+	if (persona == null) {
+		await sendReply(ctx, { text: esc("I don't know that persona. Send /start again.") })
+		return
+	}
+	await linkChat(ctx, chatId, persona.tenantCode, persona.email, persona.blurb)
+}
+
+const showPicker = async (ctx: BotContext): Promise<void> => {
+	await sendReply(ctx, {
+		text: lines([
+			bold("Who are you today?"),
+			"",
+			esc("Pick a persona and I'll sign this chat in as them."),
+		]),
+		rows: PERSONAS.map((persona) => row([btn(persona.label, personaData(persona.key))])),
+	})
+}
 
 export const callStart = async (ctx: BotContext): Promise<void> => {
 	const chatId = requireChatId(ctx)
 	const text = ctx.message?.text ?? ""
-	const match = text.match(/^\/start(?:\s+(.+))?/)
-	const arg = match?.[1]?.trim() ?? ""
+	const arg = (text.match(/^\/start(?:\s+(.+))?/)?.[1] ?? "").trim()
 
 	if (arg === "logout" || arg === "unbind") {
 		const existing = await getSession(chatId)
@@ -20,9 +74,7 @@ export const callStart = async (ctx: BotContext): Promise<void> => {
 			await redis.srem(`bot:tenant:${existing.tenantId}:chats`, String(chatId))
 		}
 		await unbindChat(chatId)
-		await sendReply(ctx, {
-			text: "You've been unlinked. Run /start <tenant-code> to link again.",
-		})
+		await sendReply(ctx, { text: esc("You're unlinked. Send /start to pick a persona again.") })
 		return
 	}
 
@@ -30,63 +82,29 @@ export const callStart = async (ctx: BotContext): Promise<void> => {
 		const existing = await getSession(chatId)
 		if (existing != null) {
 			await sendReply(ctx, {
-				text: `You're already linked to ${existing.tenantId.slice(0, 8)} as ${existing.role}. Send /menu to see what you can do, or /start logout to unlink.`,
+				text: lines([
+					esc(`You're already linked as ${existing.role}.`),
+					italic("Send /menu to see what you can do, or /start logout to switch persona."),
+				]),
 			})
 			return
 		}
-		try {
-			const session = await bindChat(chatId, config.defaultTenantCode, config.defaultTenantEmail)
-			await setTenantSession(session.tenantId, session)
-			await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
-			await registerTenant(session.tenantId)
-			logger.warn(
-				{ chatId, tenantId: session.tenantId, role: session.role, source: "default-bind" },
-				"chat auto-bound to default tenant user",
-			)
-			await sendReply(ctx, {
-				text: `Linked to ${config.defaultTenantCode} as ${session.role}. Send /menu to see what's available.`,
-			})
-		} catch (error) {
-			const message = error instanceof Error ? error.message : "I couldn't link this chat."
-			logger.error({ chatId, error: message }, "default-bind failed")
-			await sendReply(ctx, { text: message })
-		}
+		await showPicker(ctx)
 		return
 	}
 
 	const parts = arg.split(/\s+/)
-	if (parts.length !== 2 || !parts[0] || !parts[1]) {
+	const tenantCode = parts[0] ?? ""
+	const email = parts[1] ?? ""
+	if (parts.length !== 2 || !isValidTenantCode(tenantCode) || !email.includes("@")) {
 		await sendReply(ctx, {
-			text: "Send your tenant code and email like: /spice-route asha@spiceroute.local",
+			text: lines([
+				esc("That didn't look like a tenant and email."),
+				italic(`Try: /start ${config.defaultTenantCode} ${config.defaultTenantEmail}`),
+			]),
 		})
 		return
 	}
 
-	const [tenantCode, email] = parts
-	if (!isValidTenantCode(tenantCode)) {
-		await sendReply(ctx, {
-			text: "That tenant code doesn't look right. Use letters, digits and dashes only.",
-		})
-		return
-	}
-	if (!email.includes("@")) {
-		await sendReply(ctx, {
-			text: "That email doesn't look right. Try again, e.g. /spice-route asha@spiceroute.local",
-		})
-		return
-	}
-
-	try {
-		const session = await bindChat(chatId, tenantCode, email)
-		await setTenantSession(session.tenantId, session)
-		await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
-		await registerTenant(session.tenantId)
-		await sendReply(ctx, {
-			text: `Linked to ${tenantCode} as ${session.role}. Send /menu to see what's available.`,
-		})
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "I couldn't link this chat."
-		logger.warn({ chatId, error: message }, "bind failed")
-		await sendReply(ctx, { text: message })
-	}
+	await linkChat(ctx, chatId, tenantCode, email, "")
 }

@@ -1,53 +1,52 @@
+import dayjs from "dayjs"
 import type { BotContext } from "../bot/bot"
 import { requireChatId } from "../bot/bot"
 import type { Reply } from "../bot/reply"
-import { callMain } from "../main-client"
+import { bold, empty, esc, lines } from "../format"
+import { callMain, MainApiError } from "../main-client"
 import type { DispatchContext } from "./index"
 
-const todayIso = () => {
-	const d = new Date()
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-const oneWeekAgoIso = () => {
-	const d = new Date()
-	d.setDate(d.getDate() - 7)
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
 type InsightResponse = {
-	summary?: string
-	highlights?: string[]
-	recommendations?: string[]
-	source: "agent" | "fallback"
+	summary: string
+	highlights: string[]
+	recommendations: string[]
 }
 
 export const handleInsights = {
-	async get(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
-		const from = String(_e.from ?? oneWeekAgoIso())
-		const to = String(_e.to ?? todayIso())
+	async get(
+		ctx: BotContext,
+		entities: Record<string, string>,
+		_d: DispatchContext,
+	): Promise<Reply> {
+		const from = entities.from ?? dayjs().subtract(7, "day").format("YYYY-MM-DD")
+		const to = entities.to ?? dayjs().format("YYYY-MM-DD")
 		try {
 			const data = await callMain<InsightResponse>(
 				requireChatId(ctx),
 				`/v1/insights?from=${from}&to=${to}`,
 			)
-			const lines: string[] = []
-			if (data.summary) lines.push(data.summary)
-			if (data.highlights && data.highlights.length > 0) {
-				lines.push("Highlights")
-				lines.push(...data.highlights.map((h) => `• ${h}`))
+			const parts: string[] = [bold("What I'm seeing")]
+			if ((data.summary ?? "") !== "") parts.push(esc(data.summary))
+			const highlights = data.highlights ?? []
+			if (highlights.length > 0) {
+				parts.push("", bold("Highlights"), ...highlights.map((item) => `• ${esc(item)}`))
 			}
-			if (data.recommendations && data.recommendations.length > 0) {
-				lines.push("Recommendations")
-				lines.push(...data.recommendations.map((r) => `• ${r}`))
+			const recommendations = data.recommendations ?? []
+			if (recommendations.length > 0) {
+				parts.push("", bold("What to do"), ...recommendations.map((item) => `• ${esc(item)}`))
 			}
-			return {
-				text: lines.length > 0 ? lines.join("\n") : "No insights for that range.",
+			if (parts.length === 1) return { text: empty("No insight for that range yet.", "") }
+			return { text: lines(parts) }
+		} catch (error) {
+			if (error instanceof MainApiError && error.code === "AI_UNAVAILABLE") {
+				return {
+					text: empty(
+						"No AI insight for that period yet.",
+						"Insights are generated from the last 7 days of activity.",
+					),
+				}
 			}
-		} catch (err) {
-			const status = (err as { status?: number }).status
-			if (status === 503) return { text: "Insights service is offline right now. Try later." }
-			return { text: "Couldn't fetch insights." }
+			throw error
 		}
 	},
 }

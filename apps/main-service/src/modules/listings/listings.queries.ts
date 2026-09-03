@@ -262,11 +262,13 @@ export const cancelListing = async (
 		return true
 	})
 
+export type CompleteResult = { ok: boolean; ownerTenantId: string }
+
 export const completeListing = async (
 	ctx: SessionContext,
 	listingId: string,
 	now: Dayjs,
-): Promise<boolean> => {
+): Promise<CompleteResult> => {
 	if (ctx.tenantType === "restaurant") {
 		return withTenant(ctx, async (tx) => {
 			const result = await tx.execute(sql`
@@ -275,7 +277,7 @@ export const completeListing = async (
 				 where id = ${listingId} and tenant_id = ${ctx.tenantId} and status = 'claimed'
 				returning id
 			`)
-			if (result.length === 0) return false
+			if (result.length === 0) return { ok: false, ownerTenantId: "" }
 
 			await tx.execute(sql`
 				insert into listing_events (tenant_id, listing_id, event, detail, occurred_at)
@@ -285,7 +287,7 @@ export const completeListing = async (
 					${now.toISOString()}
 				)
 			`)
-			return true
+			return { ok: true, ownerTenantId: ctx.tenantId }
 		})
 	}
 	return withSuperAdmin(async (tx) => {
@@ -295,9 +297,9 @@ export const completeListing = async (
 			 where id = ${listingId} and claimed_by_tenant_id = ${ctx.tenantId} and status = 'claimed'
 			returning id, tenant_id
 		`)
-		if (result.length === 0) return false
+		if (result.length === 0) return { ok: false, ownerTenantId: "" }
 		const ownerTenantId = String(result[0]?.tenant_id ?? "")
-		if (ownerTenantId === "") return false
+		if (ownerTenantId === "") return { ok: false, ownerTenantId: "" }
 
 		await tx.execute(sql`
 			insert into listing_events (tenant_id, listing_id, event, detail, occurred_at)
@@ -307,7 +309,7 @@ export const completeListing = async (
 				${now.toISOString()}
 			)
 		`)
-		return true
+		return { ok: true, ownerTenantId }
 	})
 }
 

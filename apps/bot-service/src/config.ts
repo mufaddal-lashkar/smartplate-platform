@@ -1,5 +1,37 @@
 const required = (name: string, fallback = ""): string => process.env[name] ?? fallback
 
+export type Persona = {
+	key: string
+	label: string
+	tenantCode: string
+	email: string
+	blurb: string
+}
+
+export const PERSONAS: Persona[] = [
+	{
+		key: "asha",
+		label: "🍛 Asha — Spice Route owner",
+		tenantCode: "spice-route",
+		email: "asha@spiceroute.local",
+		blurb: "90 days of kitchen history. Log prep, decide leftovers, watch the waterfall.",
+	},
+	{
+		key: "ravi",
+		label: "🤝 Ravi — Akshaya Trust (NGO)",
+		tenantCode: "akshaya-trust",
+		email: "ravi@akshaya.local",
+		blurb: "A verified NGO. Browse donations, claim them, complete the pickup.",
+	},
+	{
+		key: "meera",
+		label: "🍽 Meera — Anna Tiffin owner",
+		tenantCode: "anna-tiffin",
+		email: "meera@annatiffin.local",
+		blurb: "A second restaurant, so you can buy Spice Route's B2B surplus.",
+	},
+]
+
 export const config = {
 	port: Number(process.env.PORT ?? 3001),
 	webhookDomain: required("TELEGRAM_WEBHOOK_URL"),

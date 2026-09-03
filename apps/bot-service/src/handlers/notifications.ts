@@ -1,6 +1,7 @@
 import type { BotContext } from "../bot/bot"
 import { requireChatId } from "../bot/bot"
 import type { Reply } from "../bot/reply"
+import { empty, esc, heading, lines } from "../format"
 import { callMain } from "../main-client"
 import type { DispatchContext } from "./index"
 
@@ -12,45 +13,42 @@ type Preference = {
 	quietHoursEnabled: boolean
 }
 
-const escapeMd = (text: string) => text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, (c) => `\\${c}`)
-
 export const handleNotifications = {
-	async get(ctx: BotContext, _e: Record<string, unknown>, _d: DispatchContext): Promise<Reply> {
+	async get(ctx: BotContext, _e: Record<string, string>, _d: DispatchContext): Promise<Reply> {
 		const data = await callMain<{ preferences: Preference[] }>(
 			requireChatId(ctx),
 			"/v1/notification-preferences",
 		)
-		if (data.preferences.length === 0) return { text: "No preferences set." }
-		const lines = data.preferences.map(
-			(p) =>
-				`• ${escapeMd(p.topic)} — radius ${p.radiusKm ?? "—"} km, ${p.activeFrom}–${p.activeTo}, quiet: ${p.quietHoursEnabled ? "on" : "off"}`,
+		if (data.preferences.length === 0) {
+			return { text: empty("No alert preferences set — you get everything in range.", "") }
+		}
+		const rows = data.preferences.map(
+			(pref) =>
+				`${esc(pref.topic)} · ${pref.radiusKm == null ? "any distance" : `${pref.radiusKm} km`} · ${esc(pref.activeFrom)}–${esc(pref.activeTo)}${pref.quietHoursEnabled ? " · quiet hours on" : ""}`,
 		)
-		return { text: `Notification preferences\n${lines.join("\n")}` }
+		return { text: lines([heading("Alert preferences", data.preferences.length), ...rows]) }
 	},
 
 	async set(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const list = Array.isArray(entities.preferences) ? entities.preferences : null
-		if (list == null || list.length === 0) {
-			return { text: "Tell me at least one preference with topic, active hours, and radius." }
+		const parsed = JSON.parse(entities.preferences ?? "[]") as Array<Record<string, string>>
+		if (parsed.length === 0) {
+			return { text: esc("Tell me a topic, a radius and the hours you want alerts.") }
 		}
-		const preferences = list.map((raw) => {
-			const p = raw as Record<string, unknown>
-			return {
-				topic: String(p.topic ?? ""),
-				radiusKm: p.radiusKm == null ? null : Number(p.radiusKm),
-				activeFrom: String(p.activeFrom ?? "00:00"),
-				activeTo: String(p.activeTo ?? "23:59"),
-				quietHoursEnabled: p.quietHoursEnabled === true,
-			}
-		})
+		const preferences = parsed.map((item) => ({
+			topic: String(item.topic ?? ""),
+			radiusKm: item.radiusKm == null ? null : Number(item.radiusKm),
+			activeFrom: String(item.activeFrom ?? "00:00"),
+			activeTo: String(item.activeTo ?? "23:59"),
+			quietHoursEnabled: String(item.quietHoursEnabled ?? "") === "true",
+		}))
 		await callMain(requireChatId(ctx), "/v1/notification-preferences", {
 			method: "PUT",
 			body: { preferences },
 		})
-		return { text: `Saved ${preferences.length} preference(s).` }
+		return { text: `✅ Saved ${preferences.length} preference(s).` }
 	},
 }

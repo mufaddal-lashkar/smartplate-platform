@@ -1,63 +1,55 @@
+import type { RoleValue, TenantTypeValue } from "@smartplate/contracts/auth"
+import { type IntentSpec, menuSections } from "@smartplate/contracts/intents"
+import type { InlineKeyboardButton } from "grammy/types"
+import { bold, esc, italic, lines } from "../../format"
 import { getSession } from "../../main-client"
+import { encodeAction, mintToken } from "../../resolver"
 import type { BotContext } from "../bot"
-import { requireChatId } from "../bot"
-import { btn, md2, row, sendReply } from "../reply"
+import type { Reply } from "../reply"
+import { btn, row, sendReply } from "../reply"
+
+const chunkOf = (specs: IntentSpec[], size: number): IntentSpec[][] => {
+	const out: IntentSpec[][] = []
+	for (let index = 0; index < specs.length; index += size) {
+		out.push(specs.slice(index, index + size))
+	}
+	return out
+}
+
+export const menuRows = async (
+	chatId: number,
+	role: RoleValue,
+	tenantType: TenantTypeValue,
+): Promise<InlineKeyboardButton[][]> => {
+	const rows: InlineKeyboardButton[][] = []
+	for (const group of menuSections(role, tenantType)) {
+		rows.push(row([btn(`— ${group.section} —`, "noop")]))
+		for (const chunk of chunkOf(group.specs, 2)) {
+			const buttons: InlineKeyboardButton[] = []
+			for (const entry of chunk) {
+				const token = await mintToken(chatId, {})
+				buttons.push(btn(entry.buttonLabel, encodeAction(entry.intent, token)))
+			}
+			rows.push(buttons)
+		}
+	}
+	const helpToken = await mintToken(chatId, {})
+	rows.push(row([btn("How do I log things?", encodeAction("help", helpToken))]))
+	return rows
+}
+
+export const menuReply = async (chatId: number): Promise<Reply> => {
+	const session = await getSession(chatId)
+	if (session == null) return { text: esc("Send /start to link this chat first.") }
+	return {
+		text: lines([
+			bold("What would you like to do?"),
+			italic(`Signed in as ${session.role}. You can also just type an instruction.`),
+		]),
+		rows: await menuRows(chatId, session.role as RoleValue, session.tenantType),
+	}
+}
 
 export const callMenu = async (ctx: BotContext): Promise<void> => {
-	const session = await getSession(requireChatId(ctx))
-	if (session == null) {
-		await sendReply(ctx, {
-			text: "Link this chat first with /start <tenant-code> <email>.",
-		})
-		return
-	}
-
-	const read = row([btn("Stock", "act:inventory.stock"), btn("Expiring", "act:inventory.expiring")])
-	const write = row([
-		btn("Log purchase", "act:inventory.purchases.create"),
-		btn("Adjust", "act:inventory.adjustments.create"),
-	])
-	const prep = row([
-		btn("Log prep", "act:prep.create"),
-		btn("Reuse pending", "act:prep.reuse_pending"),
-	])
-	const leftover = row([
-		btn("Leftovers", "act:leftovers.list"),
-		btn("Record leftover", "act:leftovers.record"),
-	])
-	const listings = row([
-		btn("My listings", "act:listings.own"),
-		btn("Browse market", "act:market.browse"),
-	])
-	const reports = row([
-		btn("Dashboard", "act:analytics.dashboard"),
-		btn("Generate report", "act:reports.create"),
-	])
-	const me = row([btn("Who am I", "act:auth.me"), btn("Logout", "act:auth.logout")])
-
-	const rows = [read, write, prep, leftover, listings, reports, me]
-
-	if (session.role === "ngo_admin" || session.role === "ngo_volunteer") {
-		rows.splice(
-			5,
-			0,
-			row([btn("Pickups", "act:market.pickups"), btn("My claims", "act:market.mine")]),
-		)
-	}
-	if (session.role === "super_admin") {
-		rows.splice(
-			6,
-			0,
-			row([
-				btn("Pending verifications", "act:admin.verification.queue"),
-				btn("All tenants", "act:admin.tenants.list"),
-			]),
-		)
-	}
-
-	await sendReply(ctx, {
-		text: `Menu for *${md2(session.role)}* \\(tenant ${md2(session.tenantId.slice(0, 8))}\\)\\. Tap an action, or send a free-form sentence\\.`,
-		parseMode: "MarkdownV2",
-		rows,
-	})
+	await sendReply(ctx, await menuReply(ctx.chatId ?? 0))
 }

@@ -1,4 +1,6 @@
 import type { BotContext } from "../bot/bot"
+import { helpText } from "../bot/commands/help"
+import { menuReply } from "../bot/commands/menu"
 import type { Reply } from "../bot/reply"
 import { handleAnalytics } from "./analytics"
 import { handleAuth } from "./auth"
@@ -20,10 +22,13 @@ export type DispatchContext = {
 	idempotencyKey: string
 }
 
-const table: Record<
-	string,
-	(ctx: BotContext, entities: Record<string, unknown>, d: DispatchContext) => Promise<Reply>
-> = {
+export type HandlerFn = (
+	ctx: BotContext,
+	entities: Record<string, string>,
+	d: DispatchContext,
+) => Promise<Reply>
+
+export const dispatchTable: Record<string, HandlerFn> = {
 	"auth.me": handleAuth.me,
 	"auth.logout": handleAuth.logout,
 	"sessions.list": handleAuth.sessionsList,
@@ -86,19 +91,6 @@ const table: Record<
 	"catalog.recipe.put": handleCatalog.recipePut,
 	"notifications.preferences.get": handleNotifications.get,
 	"notifications.preferences.set": handleNotifications.set,
-	help: async () => ({ text: "Send /menu for a list of actions, or write a clear instruction." }),
-	menu: async () => ({ text: "Send /menu." }),
-}
-
-export const dispatchIntent = async (
-	ctx: BotContext,
-	intent: string,
-	entities: Record<string, unknown>,
-	dispatch: DispatchContext,
-): Promise<Reply> => {
-	const handler = table[intent]
-	if (handler == null) {
-		return { text: `I don't know how to handle that yet (${intent}). Try /menu.` }
-	}
-	return handler(ctx, entities, dispatch)
+	help: async () => ({ text: helpText() }),
+	menu: async (ctx) => menuReply(ctx.chatId ?? 0),
 }

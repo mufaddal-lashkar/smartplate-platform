@@ -3,15 +3,32 @@ import { mkdir, rename } from "node:fs/promises"
 import { join, resolve as resolvePath, sep } from "node:path"
 import type { SessionContext } from "../../db/tx"
 import { ApiError } from "../../shared/api-error"
-import { buildReportTable, type ReportTable } from "../analytics/analytics.service"
+import { systemClock } from "../../shared/clock"
+import {
+	buildReportTable,
+	type Dashboard,
+	getDashboard,
+	getDishes,
+	getRecovery,
+	getWaste,
+	type ReportTable,
+} from "../analytics/analytics.service"
 import { renderCsv } from "./renderers/csv"
-import { renderPdf } from "./renderers/pdf"
+import {
+	type ReportChartPoint,
+	type ReportDocument,
+	type ReportKpi,
+	renderPdf,
+	renderReportPdf,
+} from "./renderers/pdf"
 import { renderXlsx } from "./renderers/xlsx"
 import {
 	deleteReportArtifact,
 	findReportForTenant,
 	insertReport,
 	listReportsForTenant,
+	loadReportContext,
+	type ReportContext,
 	updateReportStatus,
 } from "./reports.queries"
 import type { CreateReportInput, ReportFormat, ReportRecord } from "./reports.schema"
@@ -28,9 +45,248 @@ const extensionFor = (format: ReportFormat): string => {
 	return "xlsx"
 }
 
-const renderArtifact = async (format: ReportFormat, table: ReportTable): Promise<Uint8Array> => {
+const fmtPct = (value: number): string => `${(value * 100).toFixed(1)}%`
+const fmtKg = (value: number): string => `${value.toFixed(1)} kg`
+const fmtInr = (value: number): string => `INR ${value.toFixed(0)}`
+
+const kpiEmphasis = (value: number, goodIsHigh: boolean): "good" | "warning" | "critical" => {
+	if (goodIsHigh) {
+		if (value >= 0.7) return "good"
+		if (value >= 0.4) return "warning"
+		return "critical"
+	}
+	if (value <= 0.1) return "good"
+	if (value <= 0.25) return "warning"
+	return "critical"
+}
+
+const reportTitleFor = (type: ReportRecord["reportType"]): string => {
+	if (type === "waste") return "Waste report"
+	if (type === "recovery") return "Recovery report"
+	return "Per-dish recovery report"
+}
+
+const buildKpis = (type: ReportRecord["reportType"], dashboard: Dashboard): ReportKpi[] => {
+	if (type === "waste") {
+		return [
+			{
+				label: "Waste rate",
+				value: fmtPct(dashboard.wasteRate),
+				hint: "Of all prepared food in the period",
+				emphasis: kpiEmphasis(dashboard.wasteRate, false),
+			},
+			{
+				label: "Surplus rate",
+				value: fmtPct(dashboard.surplusRate),
+				hint: "Prepared food that became surplus",
+				emphasis: "primary",
+			},
+			{
+				label: "kg diverted",
+				value: fmtKg(dashboard.kgDiverted),
+				hint: "Reused, sold, or donated instead of binned",
+				emphasis: "good",
+			},
+			{
+				label: "Open listings",
+				value: dashboard.openListings.toString(),
+				hint: "Surplus currently offered to NGOs",
+				emphasis: dashboard.openListings > 0 ? "primary" : "good",
+			},
+			{
+				label: "Value recovered",
+				value: fmtInr(dashboard.valueRecovered),
+				hint: "Reused value + B2B proceeds",
+				emphasis: "good",
+			},
+			{
+				label: "Loss avoided",
+				value: fmtInr(dashboard.lossAvoided),
+				hint: "Value that would have been wasted",
+				emphasis: "good",
+			},
+		]
+	}
+	if (type === "recovery") {
+		return [
+			{
+				label: "Recovery rate",
+				value: fmtPct(dashboard.recoveryRate),
+				hint: "Of surplus food kept out of waste",
+				emphasis: kpiEmphasis(dashboard.recoveryRate, true),
+			},
+			{
+				label: "kg diverted",
+				value: fmtKg(dashboard.kgDiverted),
+				hint: "Reused + sold + donated",
+				emphasis: "good",
+			},
+			{
+				label: "Value recovered",
+				value: fmtInr(dashboard.valueRecovered),
+				hint: "Reused value + B2B proceeds",
+				emphasis: "good",
+			},
+			{
+				label: "Open listings",
+				value: dashboard.openListings.toString(),
+				hint: "Surplus currently offered to NGOs",
+				emphasis: dashboard.openListings > 0 ? "primary" : "good",
+			},
+			{
+				label: "Pending leftovers",
+				value: fmtKg(dashboard.pendingLeftovers),
+				hint: "Awaiting a recovery decision",
+				emphasis: dashboard.pendingLeftovers > 0 ? "warning" : "good",
+			},
+			{
+				label: "Unconvertible",
+				value: fmtKg(dashboard.unconvertibleQty),
+				hint: "Could not be safely recovered",
+				emphasis: "critical",
+			},
+		]
+	}
+	return [
+		{
+			label: "Recovery rate",
+			value: fmtPct(dashboard.recoveryRate),
+			hint: "Across all dishes in the period",
+			emphasis: kpiEmphasis(dashboard.recoveryRate, true),
+		},
+		{
+			label: "kg diverted",
+			value: fmtKg(dashboard.kgDiverted),
+			hint: "Reused + sold + donated",
+			emphasis: "good",
+		},
+		{
+			label: "Value recovered",
+			value: fmtInr(dashboard.valueRecovered),
+			hint: "Reused value + B2B proceeds",
+			emphasis: "good",
+		},
+		{
+			label: "Loss avoided",
+			value: fmtInr(dashboard.lossAvoided),
+			hint: "Value kept out of waste",
+			emphasis: "good",
+		},
+		{
+			label: "Pending leftovers",
+			value: fmtKg(dashboard.pendingLeftovers),
+			hint: "Awaiting a recovery decision",
+			emphasis: dashboard.pendingLeftovers > 0 ? "warning" : "good",
+		},
+		{
+			label: "Open listings",
+			value: dashboard.openListings.toString(),
+			hint: "Currently offered to NGOs",
+			emphasis: dashboard.openListings > 0 ? "primary" : "good",
+		},
+	]
+}
+
+const buildChart = async (
+	ctx: SessionContext,
+	type: ReportRecord["reportType"],
+	range: { from: string; to: string },
+): Promise<ReportDocument["chart"]> => {
+	if (type === "waste") {
+		const { series } = await getWaste(ctx, range, "day")
+		const points: ReportChartPoint[] = series.map((row) => ({
+			label: row.bucket,
+			primary: Number(row.surplusKg.toFixed(3)),
+			secondary: Number(row.wasteKg.toFixed(3)),
+		}))
+		return {
+			title: "Daily surplus vs waste (kg)",
+			primaryLabel: "Surplus (kg)",
+			secondaryLabel: "Waste (kg)",
+			points,
+		}
+	}
+	if (type === "recovery") {
+		const { series } = await getRecovery(ctx, range, "day")
+		const points: ReportChartPoint[] = series.map((row) => ({
+			label: row.bucket,
+			primary: Number(row.totalRecoveredKg.toFixed(3)),
+			secondary: Number((row.reusedKg + row.soldKg + row.donatedKg).toFixed(3)),
+		}))
+		return {
+			title: "Daily recovery (kg)",
+			primaryLabel: "Total recovered",
+			secondaryLabel: "Donated",
+			points,
+		}
+	}
+	const { dishes } = await getDishes(ctx, range)
+	const points: ReportChartPoint[] = dishes.slice(0, 14).map((row) => ({
+		label: row.name,
+		primary: Number(row.reusedKg.toFixed(3)),
+		secondary: Number(row.donatedKg.toFixed(3)),
+	}))
+	return {
+		title: "Per-dish recovery (top 14)",
+		primaryLabel: "Reused (kg)",
+		secondaryLabel: "Donated (kg)",
+		points,
+	}
+}
+
+const buildReportDocument = async (
+	report: ReportRecord,
+	table: ReportTable,
+	dashboard: Dashboard,
+	rc: ReportContext,
+): Promise<ReportDocument> => {
+	const range = { from: report.periodStart, to: report.periodEnd }
+	const chart = await buildChart(
+		{
+			tenantId: report.tenantId,
+			tenantType: "restaurant",
+			role: "owner",
+			userId: "",
+		},
+		report.reportType,
+		range,
+	)
+	const restaurant = rc.restaurant
+	return {
+		reportId: report.id,
+		reportType: report.reportType,
+		reportTitle: reportTitleFor(report.reportType),
+		periodStart: report.periodStart,
+		periodEnd: report.periodEnd,
+		generatedAt: systemClock.now().toISOString(),
+		org: {
+			tenantName: rc.tenantName,
+			restaurantName: restaurant?.name ?? reportTitleFor(report.reportType),
+			addressLine: restaurant?.addressLine ?? "",
+			city: restaurant?.city ?? "",
+			state: restaurant?.state ?? "",
+			pinCode: restaurant?.pinCode ?? "",
+			cuisineType: restaurant?.cuisineType ?? "",
+			gstNumber: restaurant?.gstNumber ?? "",
+			contactPhone: restaurant?.contactPhone ?? "",
+		},
+		requester: rc.requester,
+		kpis: buildKpis(report.reportType, dashboard),
+		chart,
+		table,
+	}
+}
+
+const renderArtifact = async (
+	format: ReportFormat,
+	table: ReportTable,
+	document: ReportDocument | null,
+): Promise<Uint8Array> => {
 	if (format === "csv") return renderCsv(table)
-	if (format === "pdf") return renderPdf(table.title, table)
+	if (format === "pdf") {
+		if (document) return renderReportPdf(document)
+		return renderPdf(table.title, table)
+	}
 	return renderXlsx(table.title.replace(/[^A-Za-z0-9]+/g, "_").slice(0, 28) || "Report", table)
 }
 
@@ -47,7 +303,7 @@ export const renderReport = async (report: ReportRecord): Promise<ReportRecord |
 		tenantId: report.tenantId,
 		tenantType: "restaurant",
 		role: "owner",
-		userId: "",
+		userId: report.requestedByUserId,
 	}
 	const start = Date.now()
 	const updated = await updateReportStatus(ctx, report.id, "running", {})
@@ -56,7 +312,15 @@ export const renderReport = async (report: ReportRecord): Promise<ReportRecord |
 		from: report.periodStart,
 		to: report.periodEnd,
 	})
-	const bytes = await renderArtifact(report.format, table)
+	let document: ReportDocument | null = null
+	if (report.format === "pdf") {
+		const [rc, dashboard] = await Promise.all([
+			loadReportContext(report.tenantId, report.requestedByUserId),
+			getDashboard(ctx, { from: report.periodStart, to: report.periodEnd }),
+		])
+		document = await buildReportDocument(report, table, dashboard, rc)
+	}
+	const bytes = await renderArtifact(report.format, table, document)
 	const dir = join(REPORTS_DIR, report.tenantId)
 	await mkdir(dir, { recursive: true })
 	const finalPath = join(dir, `${report.id}.${extensionFor(report.format)}`)

@@ -5,8 +5,9 @@ import { type ReuseEstimate, requestReuseEstimate } from "../../shared/agent-cli
 import { ApiError } from "../../shared/api-error"
 import type { Clock } from "../../shared/clock"
 import { safeUntilFor } from "../../shared/food-safety"
-import { publishEvent } from "../events/events.service"
+import { type DomainEvent, publishEvent, publishToTenants } from "../events/events.service"
 import { escalationWindowSeconds, scheduleEscalation } from "../listings/listings.service"
+import { selectTenantsNearListing } from "../market/market.queries"
 import {
 	findDecidedLeftoverIds,
 	findDishById,
@@ -463,11 +464,14 @@ export const commitDispositions = async (
 	})
 
 	for (const listing of listings) {
-		await publishEvent(ctx.tenantId, {
+		const event: DomainEvent = {
 			topic: "market",
 			name: "listing.created",
-			data: { listingId: listing.id, channel: listing.channel },
-		})
+			data: { listingId: listing.id, entityId: listing.id, channel: listing.channel },
+		}
+		await publishEvent(ctx.tenantId, event)
+		const audience = listing.channel === "ngo" ? "ngo" : "restaurant"
+		await publishToTenants(await selectTenantsNearListing(listing.id, audience), event)
 		if (listing.channel === "b2b") {
 			await scheduleEscalation(listing.id, ctx.tenantId)
 		}

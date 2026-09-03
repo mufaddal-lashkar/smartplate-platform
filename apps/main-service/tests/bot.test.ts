@@ -79,6 +79,30 @@ describe("startSession", () => {
 		expect(session.tenantId).toBe(tenantId)
 	})
 
+	it("re-issues when the cached access token's JWT is expired", async () => {
+		chatId = Math.floor(Math.random() * 1e15)
+		const bind = await bindChat({ chatId, tenantCode, email })
+
+		const first = await startSession("", { refreshToken: bind.refreshToken })
+		expect(first.accessToken.split(".")).toHaveLength(3)
+
+		const { createHash } = await import("node:crypto")
+		const { redis } = await import("../src/shared/redis")
+		const linkKey = `bot:link:${createHash("sha256").update(bind.refreshToken).digest("hex")}`
+		const cached = JSON.parse((await redis.get(linkKey)) ?? "{}") as Record<string, string | number>
+		const expired = `${first.accessToken.split(".").slice(0, 2).join(".")}.AAAA`
+		await redis.set(
+			linkKey,
+			JSON.stringify({ ...cached, access_token: expired }),
+			"EX",
+			60 * 60 * 24 * 30,
+		)
+
+		const second = await startSession("", { refreshToken: bind.refreshToken })
+		expect(second.accessToken).not.toBe(first.accessToken)
+		expect(second.accessToken.split(".")).toHaveLength(3)
+	})
+
 	it("rejects an unknown refresh token", async () => {
 		await expect(startSession("", { refreshToken: "deadbeef.deadbeef" })).rejects.toMatchObject({
 			code: "AUTH_TOKEN_EXPIRED",
@@ -96,6 +120,23 @@ describe("unbindChat", () => {
 			sql`select 1 as present from telegram_chats where chat_id = ${chatId}::bigint`,
 		)
 		expect(rows.length).toBe(0)
+	})
+})
+
+describe("bot service-token guard scope", () => {
+	it("does not leak onto routes registered after the bot module", async () => {
+		const source = await Bun.file("apps/main-service/src/modules/bot/bot.guard.ts").text()
+		expect(source).toContain('as: "local"')
+		expect(source).not.toContain('as: "scoped"')
+	})
+
+	it("keeps every non-bot route out of the guard's reach in the route table", async () => {
+		const index = await Bun.file("apps/main-service/src/index.ts").text()
+		const botAt = index.indexOf(".use(botRoute)")
+		expect(botAt).toBeGreaterThan(-1)
+		const after = index.slice(botAt)
+		expect(after).toContain(".use(inventoryRoute)")
+		expect(after).toContain(".use(analyticsRoute)")
 	})
 })
 

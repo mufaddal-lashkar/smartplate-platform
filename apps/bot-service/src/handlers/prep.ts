@@ -1,87 +1,125 @@
+import dayjs from "dayjs"
 import type { BotContext } from "../bot/bot"
 import { requireChatId } from "../bot/bot"
 import type { Reply } from "../bot/reply"
+import { btn, row } from "../bot/reply"
+import { empty, esc, heading, italic, lines, qty, until } from "../format"
 import { callMain } from "../main-client"
+import { encodeAction, mintToken } from "../resolver"
 import type { DispatchContext } from "./index"
 
+const LIST_LIMIT = 15
+
 type Dish = { id: string; name: string; servingUnit: string }
-type Leftover = {
-	id: string
-	dishId: string
-	dishName: string
-	qty: string
+
+type ReusePending = {
+	leftoverId: string
+	leftoverQty: number
 	unit: string
+	retainQty: number
+	dishName: string
+	dishId: string
 	safeUntil: string
+	preparedAt: string
 }
 
-const escapeMd = (text: string) => text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, (c) => `\\${c}`)
-
-const todayIso = () => {
-	const d = new Date()
-	const y = d.getFullYear()
-	const m = String(d.getMonth() + 1).padStart(2, "0")
-	const day = String(d.getDate()).padStart(2, "0")
-	return `${y}-${m}-${day}`
-}
-
-const findDishIdByName = async (ctx: BotContext, name: string): Promise<string | null> => {
+export const findDishIdByName = async (ctx: BotContext, name: string): Promise<string> => {
 	const data = await callMain<{ items: Dish[] }>(requireChatId(ctx), "/v1/dishes")
 	const target = name.toLowerCase().trim()
-	const hit = data.items.find((d) => d.name.toLowerCase() === target)
-	return hit?.id ?? data.items.find((d) => d.name.toLowerCase().includes(target))?.id ?? null
+	const exact = data.items.find((dish) => dish.name.toLowerCase() === target)
+	if (exact != null) return exact.id
+	return data.items.find((dish) => dish.name.toLowerCase().includes(target))?.id ?? ""
 }
 
 export const handlePrep = {
 	async create(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		d: DispatchContext,
 	): Promise<Reply> {
-		const name = String(entities.dish ?? "").trim()
-		if (name === "") return { text: "Tell me the dish, e.g. 'prepped 2 kg rice for lunch'." }
+		const chatId = requireChatId(ctx)
+		const name = (entities.dish ?? "").trim()
 		const dishId = await findDishIdByName(ctx, name)
-		if (dishId == null) return { text: `I don't see a dish called "${name}". Add it first.` }
-		const qty = Number(entities.qty ?? 0)
-		if (!Number.isFinite(qty) || qty <= 0) return { text: "Tell me a positive quantity." }
-		const mealPeriod = String(entities.mealPeriod ?? "lunch")
-		const serviceDate = String(entities.serviceDate ?? todayIso())
-		await callMain(requireChatId(ctx), "/v1/prep-entries", {
+		if (dishId === "") {
+			return {
+				text: lines([
+					esc(`I don't have a dish called "${name}".`),
+					italic("Add it first: add dish paneer butter masala, plate, 220"),
+				]),
+			}
+		}
+		const amount = Number(entities.qty)
+		if (!Number.isFinite(amount) || amount <= 0) {
+			return { text: esc("Tell me a positive quantity.") }
+		}
+		const mealPeriod = entities.mealPeriod ?? "lunch"
+		const serviceDate = entities.serviceDate ?? dayjs().format("YYYY-MM-DD")
+		await callMain(chatId, "/v1/prep-entries", {
 			method: "POST",
-			body: { dishId, qtyPrepared: qty, mealPeriod, serviceDate, covers: 0 },
+			body: { dishId, qtyPrepared: amount, mealPeriod, serviceDate, covers: 0 },
 			idempotencyKey: d.idempotencyKey,
 		})
-		return { text: `Logged prep of ${qty} ${escapeMd(name)} for ${mealPeriod} on ${serviceDate}.` }
+		return {
+			text: lines([
+				`✅ Logged ${amount} of ${esc(name)} for ${esc(mealPeriod)} on ${esc(serviceDate)}.`,
+				italic("Tell me about any leftovers at the end of service."),
+			]),
+		}
 	},
 
 	async reusePending(
 		ctx: BotContext,
-		_e: Record<string, unknown>,
+		_e: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const data = await callMain<{ items: Leftover[] }>(
-			requireChatId(ctx),
-			"/v1/leftovers/reuse-pending",
-		)
-		if (data.items.length === 0) return { text: "No pending reuse." }
-		const lines = data.items.map((l) => `• ${escapeMd(l.dishName)} — ${l.qty} ${l.unit}`)
-		return { text: `Pending reuse\n${lines.join("\n")}` }
+		const chatId = requireChatId(ctx)
+		const data = await callMain<{ items: ReusePending[] }>(chatId, "/v1/leftovers/reuse-pending")
+		if (data.items.length === 0) {
+			return { text: empty("Nothing waiting on a reuse confirmation.", "") }
+		}
+		const now = dayjs()
+		const rows: string[] = []
+		const keyboard = []
+		for (const item of data.items.slice(0, LIST_LIMIT)) {
+			rows.push(
+				lines([
+					`<b>${esc(item.dishName)}</b>`,
+					`${qty(item.retainQty, item.unit)} retained of ${qty(item.leftoverQty, item.unit)} · ${until(item.safeUntil, now)}`,
+				]),
+			)
+			const token = await mintToken(chatId, {
+				leftoverId: item.leftoverId,
+				reusedQty: String(item.retainQty),
+			})
+			keyboard.push(
+				row([
+					btn(
+						`Confirm ${qty(item.retainQty, item.unit)} reused`,
+						encodeAction("prep.reuse_confirm", token),
+					),
+				]),
+			)
+		}
+		return {
+			text: lines([heading("Waiting on reuse", data.items.length), "", rows.join("\n\n")]),
+			rows: keyboard,
+		}
 	},
 
 	async reuseConfirm(
 		ctx: BotContext,
-		entities: Record<string, unknown>,
+		entities: Record<string, string>,
 		_d: DispatchContext,
 	): Promise<Reply> {
-		const leftoverId = String(entities.leftoverId ?? "").trim()
-		if (leftoverId === "") return { text: "Tell me the leftover id." }
-		const reusedQty = Number(entities.reusedQty ?? 0)
-		if (!Number.isFinite(reusedQty) || reusedQty <= 0)
-			return { text: "Tell me a positive quantity." }
-		const notes = String(entities.notes ?? "")
+		const leftoverId = (entities.leftoverId ?? "").trim()
+		const reusedQty = Number(entities.reusedQty)
+		if (!Number.isFinite(reusedQty) || reusedQty <= 0) {
+			return { text: esc("Tell me a positive quantity.") }
+		}
 		await callMain(requireChatId(ctx), `/v1/leftovers/${leftoverId}/reuse-confirmation`, {
 			method: "POST",
-			body: { confirmedReusedQty: reusedQty, notes },
+			body: { confirmedReusedQty: reusedQty, notes: entities.notes ?? "" },
 		})
-		return { text: `Confirmed ${reusedQty} reused for ${leftoverId.slice(0, 8)}.` }
+		return { text: `✅ Confirmed ${reusedQty} reused — that's surplus that never became waste.` }
 	},
 }

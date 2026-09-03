@@ -1,40 +1,76 @@
-import { callAgent, type ParseIntentResponse } from "../agent-client"
-import { redis } from "../db"
-import { dispatchIntent } from "../handlers"
+import { findIntent } from "@smartplate/contracts/intents"
+import { callAgent } from "../agent-client"
+import { errorLine, esc, italic, lines } from "../format"
+import { dispatchTable } from "../handlers"
 import { logger } from "../logger"
-import { bindChat, getSession, setTenantSession } from "../main-client"
-import { isValidTenantCode, parseFallback } from "../parse-fallback"
-import { registerTenant } from "../sse-bridge"
+import { getSession } from "../main-client"
+import { parseFallback } from "../parse-fallback"
 import type { BotContext } from "./bot"
 import { requireChatId } from "./bot"
-import { type Reply, sendReply } from "./reply"
+import { sendReply } from "./reply"
 
-const IDEMPOTENCY_KEY = (chatId: number, updateId: number) => `bot:idem:${chatId}:${updateId}`
+const CONFIDENCE_FLOOR = 0.5
 
-const askForClarification = (ctx: BotContext, needs: string[]): Promise<number | null> =>
-	sendReply(ctx, {
-		text: `I need a bit more. Please provide: ${needs.join(", ")}.`,
-	})
+type AgentRole = "super_admin" | "owner" | "staff" | "ngo_admin" | "ngo_volunteer"
 
-const performBind = async (
+const flatten = (
+	entities: Record<string, string | number | boolean | string[]>,
+): Record<string, string> => {
+	const out: Record<string, string> = {}
+	for (const [key, value] of Object.entries(entities)) {
+		out[key] = Array.isArray(value) ? JSON.stringify(value) : String(value)
+	}
+	return out
+}
+
+export const run = async (
 	ctx: BotContext,
 	chatId: number,
-	tenantCode: string,
-	email: string,
+	intent: string,
+	entities: Record<string, string>,
+	idempotencyKey: string,
 ): Promise<void> => {
-	try {
-		const session = await bindChat(chatId, tenantCode, email)
-		await setTenantSession(session.tenantId, session)
-		await redis.sadd(`bot:tenant:${session.tenantId}:chats`, String(chatId))
-		await registerTenant(session.tenantId)
-		ctx.session.step = ""
+	const spec = findIntent(intent)
+	if (spec == null) {
 		await sendReply(ctx, {
-			text: `Linked to ${tenantCode} as ${session.role}. Send /menu to see what's available.`,
+			text: lines([
+				esc("I didn't catch that."),
+				italic("Send /menu to see what I can do, or try a clearer instruction."),
+			]),
 		})
+		return
+	}
+
+	const missing = spec.requiredEntities.filter((field) => (entities[field] ?? "") === "")
+
+	if (missing.length > 0 && spec.listIntent !== "") {
+		await run(ctx, chatId, spec.listIntent, {}, idempotencyKey)
+		return
+	}
+
+	if (missing.length > 0) {
+		await sendReply(ctx, {
+			text: lines([
+				esc(`I need ${missing.join(" and ")} for that.`),
+				italic(`Try: ${spec.example}`),
+			]),
+		})
+		return
+	}
+
+	const handler = dispatchTable[intent]
+	if (handler == null) {
+		await sendReply(ctx, { text: esc("That isn't wired up yet. Send /menu.") })
+		return
+	}
+
+	try {
+		const reply = await handler(ctx, entities, { idempotencyKey })
+		await sendReply(ctx, reply)
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "I couldn't link this chat."
-		logger.warn({ chatId, error: message }, "bind failed")
-		await sendReply(ctx, { text: message })
+		const failure = error instanceof Error ? error : new Error("unknown handler failure")
+		logger.warn({ chatId, intent, error: failure.message }, "handler error")
+		await sendReply(ctx, { text: errorLine(failure) })
 	}
 }
 
@@ -44,50 +80,23 @@ export const dispatch = async (ctx: BotContext): Promise<void> => {
 	const chatId = requireChatId(ctx)
 	const updateId = ctx.update.update_id
 
-	if (ctx.session.step === "awaiting_tenant_code") {
-		const parts = text.trim().split(/\s+/)
-		if (parts.length === 2 && parts[0] != null && parts[1] != null) {
-			const [tenantCode, email] = parts
-			if (isValidTenantCode(tenantCode) && email.includes("@")) {
-				await performBind(ctx, chatId, tenantCode, email)
-				return
-			}
-		}
-		await sendReply(ctx, {
-			text: "Send your tenant code and email like: spice-route asha@spiceroute.local",
-		})
-		return
-	}
-
 	const session = await getSession(chatId)
 	if (session == null) {
-		await sendReply(ctx, {
-			text: "Link this chat first with /start <tenant-code> <email>.",
-		})
+		await sendReply(ctx, { text: esc("Send /start to link this chat first.") })
 		return
 	}
 
-	if (ctx.session.step.startsWith("awaiting_")) {
-		await sendReply(ctx, {
-			text: "I'm still waiting for the previous step. Send /cancel to abort.",
-		})
-		return
-	}
-
-	const requestId = `${chatId}-${updateId}`
 	const parsed = await callAgent({
-		requestId,
+		requestId: `${chatId}-${updateId}`,
 		text,
-		userRole: session.role as "super_admin" | "owner" | "staff" | "ngo_admin" | "ngo_volunteer",
+		userRole: session.role as AgentRole,
 		tenantType: session.tenantType,
 	})
 
 	let intent = parsed?.intent ?? "unknown"
-	let confidence = parsed?.confidence ?? 0
-	let entities = parsed?.entities ?? {}
-	let needs = parsed?.needs_clarification ?? []
+	let entities = flatten(parsed?.entities ?? {})
 
-	if (parsed == null || confidence < 0.5) {
+	if (parsed == null || parsed.confidence < CONFIDENCE_FLOOR) {
 		const fallback = parseFallback(text)
 		logger.info(
 			{
@@ -96,39 +105,12 @@ export const dispatch = async (ctx: BotContext): Promise<void> => {
 				primary: parsed?.intent ?? null,
 				primaryConfidence: parsed?.confidence ?? null,
 				fallbackIntent: fallback.intent,
-				fallbackConfidence: fallback.confidence,
 			},
 			"using fallback parser",
 		)
 		intent = fallback.intent
-		confidence = fallback.confidence
 		entities = { ...fallback.entities, ...entities }
-		needs = fallback.needs_clarification
 	}
 
-	if (intent === "unknown") {
-		await sendReply(ctx, {
-			text: "I didn't catch that. Try /menu for the full list, or write a clearer instruction.",
-		})
-		return
-	}
-
-	if (needs.length > 0) {
-		await askForClarification(ctx, needs)
-		return
-	}
-
-	const idempotencyKey = IDEMPOTENCY_KEY(chatId, updateId)
-	try {
-		const reply = await dispatchIntent(ctx, intent, entities, { idempotencyKey })
-		await sendReply(ctx, reply)
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "Something went wrong."
-		logger.warn({ chatId, updateId, intent, error: message }, "handler error")
-		await sendReply(ctx, { text: message })
-	}
+	await run(ctx, chatId, intent, entities, `bot:msg:${chatId}:${updateId}`)
 }
-
-export type IntentResult = Reply
-
-void ({} as ParseIntentResponse)

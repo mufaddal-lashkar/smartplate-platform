@@ -45,3 +45,9 @@ export const subscribeToTenant = (
 		subscriber.disconnect()
 	}
 }
+
+export const publishToTenants = async (tenantIds: string[], event: DomainEvent): Promise<void> => {
+	for (const tenantId of tenantIds) {
+		await publishEvent(tenantId, event)
+	}
+}

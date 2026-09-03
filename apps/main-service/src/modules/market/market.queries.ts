@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm"
+import type { TenantType } from "../../db/schema"
 import { type SessionContext, withSuperAdmin, withTenant } from "../../db/tx"
 
 export type MarketListingRow = {
@@ -143,3 +144,42 @@ export const findNgoActiveWindow = async (
 		}
 	})
 }
+
+export const selectTenantsNearListing = async (
+	listingId: string,
+	audience: TenantType,
+): Promise<string[]> =>
+	withSuperAdmin(async (tx) => {
+		const rows =
+			audience === "restaurant"
+				? await tx.execute(sql`
+					select r.tenant_id as tenant_id
+					  from surplus_listings sl
+					  join restaurants r on r.tenant_id <> sl.tenant_id
+					 where sl.id = ${listingId}
+					   and sl.geog is not null
+					   and r.latitude is not null
+					   and r.longitude is not null
+					   and ST_DWithin(
+					     sl.geog,
+					     ST_SetSRID(ST_MakePoint(r.longitude::float8, r.latitude::float8), 4326)::geography,
+					     r.browse_radius_km * 1000
+					   )
+				`)
+				: await tx.execute(sql`
+					select n.tenant_id as tenant_id
+					  from surplus_listings sl
+					  join ngos n on n.tenant_id <> sl.tenant_id
+					 where sl.id = ${listingId}
+					   and sl.geog is not null
+					   and n.latitude is not null
+					   and n.longitude is not null
+					   and n.verified_at is not null
+					   and ST_DWithin(
+					     sl.geog,
+					     ST_SetSRID(ST_MakePoint(n.longitude::float8, n.latitude::float8), 4326)::geography,
+					     n.service_radius_km * 1000
+					   )
+				`)
+		return rows.map((row) => String(row.tenant_id))
+	})

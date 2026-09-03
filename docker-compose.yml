@@ -65,6 +65,8 @@ services:
       ESCALATION_WINDOW_SECONDS: ${ESCALATION_WINDOW_SECONDS:-30}
       NGO_BUFFER_HOURS: ${NGO_BUFFER_HOURS:-4}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+    volumes:
+      - runtime_data:/app/.runtime
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,6 +89,8 @@ services:
       SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token}
       ESCALATION_WINDOW_SECONDS: ${ESCALATION_WINDOW_SECONDS:-30}
       NGO_BUFFER_HOURS: ${NGO_BUFFER_HOURS:-4}
+    volumes:
+      - runtime_data:/app/.runtime
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,7 +136,9 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
       BOT_POLLING: ${BOT_POLLING:-true}
-      REQUEST_TIMEOUT_MS: ${BOT_REQUEST_TIMEOUT_MS:-25000}
+      BOT_REQUEST_TIMEOUT_MS: ${BOT_REQUEST_TIMEOUT_MS:-25000}
+      BOT_DEFAULT_TENANT_CODE: ${BOT_DEFAULT_TENANT_CODE:-spice-route}
+      BOT_DEFAULT_TENANT_EMAIL: ${BOT_DEFAULT_TENANT_EMAIL:-asha@spiceroute.local}
     depends_on:
       redis:
         condition: service_healthy
@@ -148,3 +154,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  runtime_data:

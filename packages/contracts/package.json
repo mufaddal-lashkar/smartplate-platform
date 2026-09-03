@@ -5,7 +5,8 @@
 	"exports": {
 		"./envelope": "./src/envelope.ts",
 		"./error-codes": "./src/error-codes.ts",
-		"./auth": "./src/auth.ts"
+		"./auth": "./src/auth.ts",
+		"./intents": "./src/intents.ts"
 	},
 	"dependencies": {
 		"zod": "4.4.3"
