@@ -99,6 +99,23 @@ describe("unbindChat", () => {
 	})
 })
 
+describe("bot service-token guard scope", () => {
+	it("does not leak onto routes registered after the bot module", async () => {
+		const source = await Bun.file("apps/main-service/src/modules/bot/bot.guard.ts").text()
+		expect(source).toContain('as: "local"')
+		expect(source).not.toContain('as: "scoped"')
+	})
+
+	it("keeps every non-bot route out of the guard's reach in the route table", async () => {
+		const index = await Bun.file("apps/main-service/src/index.ts").text()
+		const botAt = index.indexOf(".use(botRoute)")
+		expect(botAt).toBeGreaterThan(-1)
+		const after = index.slice(botAt)
+		expect(after).toContain(".use(inventoryRoute)")
+		expect(after).toContain(".use(analyticsRoute)")
+	})
+})
+
 void schema
 void ownerId
 void email

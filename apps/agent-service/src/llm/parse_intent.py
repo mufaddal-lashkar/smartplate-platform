@@ -11,7 +11,7 @@ from src.validation.bounds import BoundsViolation, enforce_parse_intent_bounds
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 PROMPT_DIR = Path(__file__).resolve().parent.parent / "prompts" / "parse_intent"
 DATA_PLACEHOLDER = "{{DATA}}"
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test"
 import { INTENTS } from "@smartplate/contracts/intents"
 import type { Bot } from "grammy"
-import type { UserFromGetMe } from "grammy/types"
+import type { MessageEntity, UserFromGetMe } from "grammy/types"
 import type { BotContext } from "../src/bot/bot"
 import { createBot } from "../src/bot/bot"
 
@@ -43,6 +43,12 @@ const buttons = (frames: Captured[]): string[] =>
 		return parsed.inline_keyboard.flat().map((button) => button.callback_data)
 	})
 
+const commandEntities = (text: string): MessageEntity[] => {
+	if (!text.startsWith("/")) return []
+	const length = (text.split(" ")[0] ?? text).length
+	return [{ type: "bot_command", offset: 0, length }]
+}
+
 const send = async (text: string, chatId = OWNER_CHAT): Promise<Captured[]> => {
 	captured.length = 0
 	updateId += 1
@@ -54,6 +60,7 @@ const send = async (text: string, chatId = OWNER_CHAT): Promise<Captured[]> => {
 			chat: { id: chatId, type: "private", first_name: "Tester" },
 			from: { id: chatId, is_bot: false, first_name: "Tester" },
 			text,
+			entities: commandEntities(text),
 		},
 	})
 	return [...captured]
@@ -80,7 +87,7 @@ const tap = async (data: string, chatId = OWNER_CHAT): Promise<Captured[]> => {
 	return [...captured]
 }
 
-beforeAll(async () => {
+beforeAll(() => {
 	bot = createBot(BOT_INFO)
 	bot.api.config.use(async (_prev, method, payload) => {
 		captured.push({ method, payload: payload as Record<string, string> })
@@ -93,12 +100,11 @@ beforeAll(async () => {
 			},
 		} as never
 	})
-	await send("/start logout", OWNER_CHAT)
-	await send("/start logout", NGO_CHAT)
 })
 
 describe("bot end-to-end against the live stack", () => {
 	it("offers the persona picker on a first /start", async () => {
+		await send("/start logout")
 		const frames = await send("/start")
 		expect(texts(frames)).toContain("Who are you today")
 		expect(buttons(frames).filter((data) => data.startsWith("p:"))).toHaveLength(3)

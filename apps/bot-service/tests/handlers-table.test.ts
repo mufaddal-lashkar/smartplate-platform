@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { findIntent, INTENTS, menuSections } from "@smartplate/contracts/intents"
+import { findIntent, INTENT_NAMES, INTENTS, menuSections } from "@smartplate/contracts/intents"
 import dayjs from "dayjs"
 import { dispatchTable } from "../src/handlers"
 import { marketRow } from "../src/handlers/market"
@@ -195,6 +195,19 @@ describe("handler hygiene", () => {
 		for (const path of await handlerFiles()) {
 			expect(await Bun.file(path).text()).not.toContain("new Date(")
 		}
+	})
+
+	it("keeps the agent-service IntentName literal in step with the registry", async () => {
+		const python = await Bun.file("apps/agent-service/src/schemas/parse_intent.py").text()
+		const block = python.slice(
+			python.indexOf("IntentName = Literal["),
+			python.indexOf("]", python.indexOf("IntentName = Literal[")),
+		)
+		const pythonNames = new Set(
+			[...block.matchAll(/"([a-z0-9_.]+)"/g)].map((match) => match[1] ?? ""),
+		)
+		pythonNames.delete("unknown")
+		expect([...pythonNames].sort()).toEqual([...INTENT_NAMES].sort())
 	})
 
 	it("carries the agent's waste quantity into the disposition split, not a hardcoded zero", async () => {

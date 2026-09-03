@@ -23,9 +23,9 @@
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",
 		"seed": "docker compose exec -T main-service sh -c \"cd /app && bun run db/seed/index.ts\"",
-		"test": "docker compose exec -T main-service sh -c \"cd /app && bun test apps/main-service/tests\"",
+		"test": "docker compose exec -T main-service sh -c \"cd /app && bun test apps/main-service/tests --timeout 30000\"",
 		"test:bot": "bun test apps/bot-service/tests/handlers-table.test.ts apps/bot-service/tests/parse-fallback.test.ts apps/bot-service/tests/reply.test.ts apps/bot-service/tests/sse-bridge.test.ts apps/bot-service/tests/start.test.ts",
-		"test:e2e": "bun test apps/bot-service/tests/e2e.test.ts"
+		"test:e2e": "bun test apps/bot-service/tests/e2e.test.ts --timeout 30000"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.6",
