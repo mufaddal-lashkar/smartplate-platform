@@ -1,10 +1,25 @@
 import { and, desc, eq, sql } from "drizzle-orm"
-import { reports } from "../../db/schema"
-import { type SessionContext, withTenant } from "../../db/tx"
+import { reports, restaurants, tenants, users } from "../../db/schema"
+import { type SessionContext, withSystem, withTenant } from "../../db/tx"
 import type { ReportFormat, ReportRecord, ReportType } from "./reports.schema"
 
 export const REPORT_STATUSES = ["queued", "running", "succeeded", "failed"] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
+
+export type ReportContext = {
+	tenantName: string
+	restaurant: {
+		name: string
+		addressLine: string
+		city: string
+		state: string
+		pinCode: string
+		cuisineType: string
+		gstNumber: string
+		contactPhone: string
+	} | null
+	requester: { name: string; email: string; role: string }
+}
 
 const toRecord = (row: typeof reports.$inferSelect): ReportRecord => ({
 	id: row.id,
@@ -19,6 +34,7 @@ const toRecord = (row: typeof reports.$inferSelect): ReportRecord => ({
 	error: row.error,
 	createdAt: row.createdAt.toISOString(),
 	finishedAt: row.finishedAt ? row.finishedAt.toISOString() : "",
+	requestedByUserId: row.requestedByUserId,
 })
 
 export const insertReport = async (
@@ -124,4 +140,66 @@ export const listExpiredArtifacts = async (cutoffIso: string): Promise<string[]>
 	`
 	const result = rows as unknown as { artifact_path: string }[]
 	return result.map((r) => r.artifact_path)
+}
+
+export const loadReportContext = async (
+	tenantId: string,
+	requesterUserId: string,
+): Promise<ReportContext> => {
+	const tenantRow = await withSystem(async (tx) => {
+		const rows = await tx
+			.select({ name: tenants.name })
+			.from(tenants)
+			.where(eq(tenants.id, tenantId))
+			.limit(1)
+		return rows[0] ?? null
+	})
+
+	const restaurantRow = await withSystem(async (tx) => {
+		const rows = await tx
+			.select({
+				name: restaurants.name,
+				addressLine: restaurants.addressLine,
+				city: restaurants.city,
+				state: restaurants.state,
+				pinCode: restaurants.pinCode,
+				cuisineType: restaurants.cuisineType,
+				gstNumber: restaurants.gstNumber,
+				contactPhone: restaurants.contactPhone,
+			})
+			.from(restaurants)
+			.where(eq(restaurants.tenantId, tenantId))
+			.limit(1)
+		return rows[0] ?? null
+	})
+
+	const requesterRow = await withSystem(async (tx) => {
+		const rows = await tx
+			.select({ name: users.name, email: users.email, role: users.role })
+			.from(users)
+			.where(eq(users.id, requesterUserId))
+			.limit(1)
+		return rows[0] ?? null
+	})
+
+	return {
+		tenantName: tenantRow?.name ?? "",
+		restaurant: restaurantRow
+			? {
+					name: restaurantRow.name,
+					addressLine: restaurantRow.addressLine,
+					city: restaurantRow.city,
+					state: restaurantRow.state,
+					pinCode: restaurantRow.pinCode,
+					cuisineType: restaurantRow.cuisineType,
+					gstNumber: restaurantRow.gstNumber,
+					contactPhone: restaurantRow.contactPhone,
+				}
+			: null,
+		requester: {
+			name: requesterRow?.name ?? "",
+			email: requesterRow?.email ?? "",
+			role: requesterRow?.role ?? "",
+		},
+	}
 }

@@ -27,4 +27,5 @@ export type ReportRecord = {
 	error: string
 	createdAt: string
 	finishedAt: string
+	requestedByUserId: string
 }
