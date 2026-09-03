@@ -35,3 +35,47 @@ export const callAgent = async (
 	if (response == null || !response.ok) return null
 	return (await response.json().catch(() => null)) as ParseIntentResponse | null
 }
+
+export type PlanStepWire = {
+	intent: string
+	params: Record<string, string | number | boolean>
+	rationale: string
+	requiresConfirmation: boolean
+}
+
+export type PlanIntentResponse = {
+	promptVersion: string
+	model: string
+	source: "model" | "deterministic"
+	plan: PlanStepWire[]
+	confidence: number
+	needsClarification: string[]
+	basis: string
+}
+
+export type CallPlanAgentRequest = {
+	requestId: string
+	text: string
+	locale?: string
+	context?: Array<{ role: "user" | "assistant"; text: string }>
+	userRole: "super_admin" | "owner" | "staff" | "ngo_admin" | "ngo_volunteer"
+	tenantType: "restaurant" | "ngo"
+	today: string
+	tenantId?: string
+}
+
+export const callPlanAgent = async (
+	request: CallPlanAgentRequest,
+): Promise<PlanIntentResponse | null> => {
+	const response = await fetch(`${config.agentUrl}/v1/plan-intent`, {
+		method: "POST",
+		headers: {
+			"content-type": "application/json",
+			"x-service-token": config.serviceToken,
+		},
+		body: JSON.stringify(request),
+		signal: AbortSignal.timeout(config.requestTimeoutMs),
+	}).catch(() => null)
+	if (response == null || !response.ok) return null
+	return (await response.json().catch(() => null)) as PlanIntentResponse | null
+}
