@@ -71,15 +71,20 @@ KEYWORD_TABLE: list[tuple[IntentName, list[str]]] = [
     ("catalog.recipe.get", ["recipe"]),
     ("catalog.recipe.put", ["update recipe", "set recipe"]),
     ("notifications.preferences.get", ["notification preferences", "alert settings"]),
-    ("notifications.preferences.set", [
-        "update notifications",
-        "set quiet hours",
-        "change radius",
-    ]),
+    (
+        "notifications.preferences.set",
+        [
+            "update notifications",
+            "set quiet hours",
+            "change radius",
+        ],
+    ),
 ]
 
 
-NUMERIC_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*(kg|g|l|ml|litre|liter|piece|pieces|plate|plates)?", re.IGNORECASE)
+NUMERIC_PATTERN = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(kg|g|l|ml|litre|liter|piece|pieces|plate|plates)?", re.IGNORECASE
+)
 DATE_PATTERN = re.compile(r"\b(\d{4}-\d{2}-\d{2}|today|tomorrow|yesterday)\b", re.IGNORECASE)
 SHORT_KEYWORDS = {"me", "menu", "help"}
 
@@ -104,7 +109,9 @@ def _intent_for_text(text: str) -> IntentName:
     return "unknown"
 
 
-def _extract_entities(text: str, intent: IntentName) -> dict[str, str | float | int | bool | list[str]]:
+def _extract_entities(
+    text: str, intent: IntentName
+) -> dict[str, str | float | int | bool | list[str]]:
     entities: dict[str, str | float | int | bool | list[str]] = {}
     lowered = text.lower()
     numeric_matches = NUMERIC_PATTERN.findall(text)

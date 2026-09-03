@@ -77,5 +77,38 @@ export const callPlanAgent = async (
 		signal: AbortSignal.timeout(config.requestTimeoutMs),
 	}).catch(() => null)
 	if (response == null || !response.ok) return null
-	return (await response.json().catch(() => null)) as PlanIntentResponse | null
+	type WireStep = {
+		intent?: string
+		params?: PlanStepWire["params"]
+		rationale?: string
+		requiresConfirmation?: boolean
+		requires_confirmation?: boolean
+	}
+	type WireResponse = {
+		promptVersion?: string
+		prompt_version?: string
+		model?: string
+		source?: "model" | "deterministic"
+		confidence?: number
+		needsClarification?: string[]
+		needs_clarification?: string[]
+		basis?: string
+		plan?: WireStep[]
+	}
+	const raw = (await response.json().catch(() => null)) as WireResponse | null
+	if (raw == null) return null
+	return {
+		promptVersion: raw.promptVersion ?? raw.prompt_version ?? "",
+		model: raw.model ?? "",
+		source: raw.source ?? "model",
+		confidence: raw.confidence ?? 0,
+		needsClarification: raw.needsClarification ?? raw.needs_clarification ?? [],
+		basis: raw.basis ?? "",
+		plan: (raw.plan ?? []).map((step) => ({
+			intent: step.intent ?? "",
+			params: step.params ?? {},
+			rationale: step.rationale ?? "",
+			requiresConfirmation: step.requiresConfirmation ?? step.requires_confirmation ?? false,
+		})),
+	}
 }

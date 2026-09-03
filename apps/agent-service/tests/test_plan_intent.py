@@ -115,7 +115,12 @@ def test_safe_until_param_key_is_denied() -> None:
     plan = [
         PlanStep(
             intent="leftovers.record",
-            params={"dish": "biryani", "qty": 5, "unit": "plate", "safeUntil": "2026-09-04T18:00:00Z"},
+            params={
+                "dish": "biryani",
+                "qty": 5,
+                "unit": "plate",
+                "safeUntil": "2026-09-04T18:00:00Z",
+            },
             rationale="log five plates of biryani as a leftover for the day",
         )
     ]
@@ -136,25 +141,47 @@ def test_first_step_destructive_must_confirm() -> None:
 
 
 def test_unknown_intent_in_step_is_rejected() -> None:
-    plan = [PlanStep(intent="unknown", params={}, rationale="at least twenty characters of rationale text")]
+    plan = [
+        PlanStep(
+            intent="unknown", params={}, rationale="at least twenty characters of rationale text"
+        )
+    ]
     with pytest.raises(BoundsViolation, match="must not be 'unknown'"):
         enforce_plan_bounds(_response(plan), "test-1")
 
 
 def test_needs_clarification_with_plan_is_rejected() -> None:
-    plan = [PlanStep(intent="leftovers.list", params={}, rationale="at least twenty characters of rationale text")]
+    plan = [
+        PlanStep(
+            intent="leftovers.list",
+            params={},
+            rationale="at least twenty characters of rationale text",
+        )
+    ]
     with pytest.raises(BoundsViolation, match="needs_clarification"):
         enforce_plan_bounds(_response(plan, needs_clarification=["dish"]), "test-1")
 
 
 def test_confidence_out_of_range_is_rejected() -> None:
-    plan = [PlanStep(intent="leftovers.list", params={}, rationale="at least twenty characters of rationale text")]
+    plan = [
+        PlanStep(
+            intent="leftovers.list",
+            params={},
+            rationale="at least twenty characters of rationale text",
+        )
+    ]
     with pytest.raises(BoundsViolation, match="confidence"):
         enforce_plan_bounds(_response(plan, confidence=1.5), "test-1")
 
 
 def test_basis_too_short_is_rejected() -> None:
-    plan = [PlanStep(intent="leftovers.list", params={}, rationale="at least twenty characters of rationale text")]
+    plan = [
+        PlanStep(
+            intent="leftovers.list",
+            params={},
+            rationale="at least twenty characters of rationale text",
+        )
+    ]
     with pytest.raises(BoundsViolation, match="basis"):
         enforce_plan_bounds(_response(plan, basis="short"), "test-1")
 
@@ -218,8 +245,9 @@ def _find_registry() -> Path | None:
 
 
 def test_plan_pydantic_resolves_against_registry() -> None:
-    from src.schemas.parse_intent import IntentName
     from typing import get_args
+
+    from src.schemas.parse_intent import IntentName
 
     registry = _find_registry()
     if registry is None:

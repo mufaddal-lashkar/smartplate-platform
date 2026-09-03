@@ -47,6 +47,7 @@ export const config = {
 	logLevel: required("LOG_LEVEL", "info"),
 	defaultTenantCode: required("BOT_DEFAULT_TENANT_CODE", "spice-route"),
 	defaultTenantEmail: required("BOT_DEFAULT_TENANT_EMAIL", "asha@spiceroute.local"),
+	orchestratorEnabled: process.env.ORCHESTRATOR_ENABLED !== "false",
 }
 
 export type Config = typeof config
