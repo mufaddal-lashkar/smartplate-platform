@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from src.api.parse_intent import router as parse_intent_router
+from src.api.plan_intent import router as plan_intent_router
 from src.api.reuse_estimate import router as reuse_estimate_router
 from src.config import settings
 from src.validation.bounds import BoundsViolation
@@ -18,6 +19,7 @@ app = FastAPI(
 
 app.include_router(reuse_estimate_router)
 app.include_router(parse_intent_router)
+app.include_router(plan_intent_router)
 
 
 @app.exception_handler(BoundsViolation)
