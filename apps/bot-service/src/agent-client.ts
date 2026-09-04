@@ -51,6 +51,7 @@ export type PlanIntentResponse = {
 	confidence: number
 	needsClarification: string[]
 	basis: string
+	graphPath: "graph" | "flat_fallback" | "deterministic" | ""
 }
 
 export type CallPlanAgentRequest = {
@@ -94,6 +95,8 @@ export const callPlanAgent = async (
 		needs_clarification?: string[]
 		basis?: string
 		plan?: WireStep[]
+		graphPath?: "graph" | "flat_fallback" | "deterministic"
+		graph_path?: "graph" | "flat_fallback" | "deterministic"
 	}
 	const raw = (await response.json().catch(() => null)) as WireResponse | null
 	if (raw == null) return null
@@ -104,6 +107,7 @@ export const callPlanAgent = async (
 		confidence: raw.confidence ?? 0,
 		needsClarification: raw.needsClarification ?? raw.needs_clarification ?? [],
 		basis: raw.basis ?? "",
+		graphPath: raw.graphPath ?? raw.graph_path ?? "",
 		plan: (raw.plan ?? []).map((step) => ({
 			intent: step.intent ?? "",
 			params: step.params ?? {},
