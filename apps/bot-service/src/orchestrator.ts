@@ -182,6 +182,8 @@ export const planDispatch = async (ctx: BotContext): Promise<void> => {
 		userRole: session.role as AgentRole,
 		tenantType: session.tenantType,
 		today: dayjs().format("YYYY-MM-DD"),
+		tenantId: session.tenantId,
+		userId: session.userId,
 	})
 
 	let steps: PlanStepWire[] = []

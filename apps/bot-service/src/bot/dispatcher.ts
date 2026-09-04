@@ -91,6 +91,8 @@ export const dispatch = async (ctx: BotContext): Promise<void> => {
 		text,
 		userRole: session.role as AgentRole,
 		tenantType: session.tenantType,
+		tenantId: session.tenantId,
+		userId: session.userId,
 	})
 
 	let intent = parsed?.intent ?? "unknown"

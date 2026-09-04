@@ -7,6 +7,8 @@ export type ParseIntentRequest = {
 	context?: Array<{ role: "user" | "assistant"; text: string }>
 	userRole: "super_admin" | "owner" | "staff" | "ngo_admin" | "ngo_volunteer"
 	tenantType: "restaurant" | "ngo"
+	tenantId?: string
+	userId?: string
 }
 
 export type ParseIntentResponse = {
@@ -63,6 +65,7 @@ export type CallPlanAgentRequest = {
 	tenantType: "restaurant" | "ngo"
 	today: string
 	tenantId?: string
+	userId?: string
 }
 
 export const callPlanAgent = async (

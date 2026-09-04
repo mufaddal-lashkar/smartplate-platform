@@ -192,7 +192,7 @@ async def _run_graph_loop(
             )
             return None
         try:
-            response = await asyncio.wait_for(bound.ainvoke(messages), timeout=10.0)
+            response = await asyncio.wait_for(bound.ainvoke(messages), timeout=30.0)
         except TimeoutError as exc:
             logger.warning(
                 "graph llm timeout",
@@ -239,7 +239,7 @@ async def _run_graph_loop(
         tools_called += len(new_tool_messages)
         if tools_called >= max_tool_calls:
             try:
-                final = await asyncio.wait_for(bound.ainvoke(messages), timeout=10.0)
+                final = await asyncio.wait_for(bound.ainvoke(messages), timeout=30.0)
             except TimeoutError:
                 return None
             if _has_plan_payload(final):
