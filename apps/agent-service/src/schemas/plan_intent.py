@@ -34,3 +34,4 @@ class PlanIntentResponse(BaseModel):
     confidence: float
     needs_clarification: list[str] = Field(default_factory=list)
     basis: str
+    graph_path: Literal["graph", "flat_fallback", "deterministic"] | None = None
