@@ -24,6 +24,7 @@ class PlanIntentRequest(BaseModel):
     tenant_type: TenantType
     today: str
     tenant_id: str = ""
+    user_id: str = ""
 
 
 class PlanIntentResponse(BaseModel):

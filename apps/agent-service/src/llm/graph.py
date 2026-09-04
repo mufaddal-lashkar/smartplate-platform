@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from src.llm.plan_intent_fallback import DESTRUCTIVE_INTENTS, _coerce_params
 from src.llm.provider import LLMProvider
 from src.schemas.plan_intent import PlanIntentRequest, PlanIntentResponse, PlanStep
+from src.tools.main_client import agent_tenant_id, agent_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,34 @@ async def run_graph(
     messages: list = list(initial_messages)
     tools_called = 0
     tools_by_name: dict[str, object] = {t.name: t for t in tools}
+    tenant_token = agent_tenant_id.set(request.tenant_id)
+    user_token = agent_user_id.set(request.user_id)
+    try:
+        return await _run_graph_loop(
+            bound=bound,
+            tools_by_name=tools_by_name,
+            request=request,
+            messages=messages,
+            started=started,
+            tools_called=tools_called,
+            max_tool_calls=max_tool_calls,
+            timeout_seconds=timeout_seconds,
+        )
+    finally:
+        agent_tenant_id.reset(tenant_token)
+        agent_user_id.reset(user_token)
+
+
+async def _run_graph_loop(
+    bound,
+    tools_by_name: dict[str, object],
+    request: PlanIntentRequest,
+    messages: list,
+    started: float,
+    tools_called: int,
+    max_tool_calls: int,
+    timeout_seconds: float,
+) -> PlanIntentResponse | None:
 
     while True:
         if time.monotonic() - started > timeout_seconds:

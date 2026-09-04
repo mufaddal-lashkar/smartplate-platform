@@ -77,3 +77,46 @@ def test_main_client_non_ok_returns_error() -> None:
     body = json.loads(asyncio.new_event_loop().run_until_complete(run()))
     assert body["error"] is True
     assert body["status"] == 403
+
+
+def test_main_client_sends_tenant_and_user_when_set() -> None:
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["x-service-token"] = request.headers.get("x-service-token", "")
+        captured["x-tenant-id"] = request.headers.get("x-tenant-id", "")
+        captured["x-user-id"] = request.headers.get("x-user-id", "")
+        return httpx.Response(200, json={"items": []})
+
+    async def run() -> None:
+        token_t = main_client.agent_tenant_id.set("tenant-X")
+        token_u = main_client.agent_user_id.set("user-Y")
+        try:
+            async with _patched_client(handler):
+                await main_client.main_get("/v1/dishes")
+        finally:
+            main_client.agent_tenant_id.reset(token_t)
+            main_client.agent_user_id.reset(token_u)
+
+    asyncio.new_event_loop().run_until_complete(run())
+    assert captured == {
+        "x-service-token": "dev-read-token",
+        "x-tenant-id": "tenant-X",
+        "x-user-id": "user-Y",
+    }
+
+
+def test_main_client_omits_headers_when_context_unset() -> None:
+    captured: dict[str, str] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["x-tenant-id"] = request.headers.get("x-tenant-id", "<missing>")
+        captured["x-user-id"] = request.headers.get("x-user-id", "<missing>")
+        return httpx.Response(200, json={"items": []})
+
+    async def run() -> None:
+        async with _patched_client(handler):
+            await main_client.main_get("/v1/dishes")
+
+    asyncio.new_event_loop().run_until_complete(run())
+    assert captured == {"x-tenant-id": "<missing>", "x-user-id": "<missing>"}
