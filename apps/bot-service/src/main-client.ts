@@ -134,7 +134,14 @@ export const getSession = async (chatId: number): Promise<BotSession | null> => 
 	if (raw == null) return null
 	const existing = JSON.parse(raw) as BotSession
 	if (!isExpiringSoon(existing) && isJwtLive(existing)) return existing
-	return refreshSession(chatId, existing.refreshToken)
+	try {
+		return await refreshSession(chatId, existing.refreshToken)
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "refresh failed"
+		logger.warn({ chatId, error: message }, "session refresh failed; clearing stale entry")
+		await clearSession(chatId)
+		return null
+	}
 }
 
 export const setSession = async (chatId: number, session: BotSession): Promise<void> => {
@@ -150,7 +157,14 @@ export const getTenantSession = async (tenantId: string): Promise<BotSession | n
 	if (raw == null) return null
 	const session = JSON.parse(raw) as BotSession
 	if (!isExpiringSoon(session) && isJwtLive(session)) return session
-	return refreshTenantSession(tenantId, session.refreshToken)
+	try {
+		return await refreshTenantSession(tenantId, session.refreshToken)
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "refresh failed"
+		logger.warn({ tenantId, error: message }, "tenant session refresh failed; clearing stale entry")
+		await clearTenantSession(tenantId)
+		return null
+	}
 }
 
 export const refreshTenantSessionNow = async (tenantId: string): Promise<BotSession | null> => {
