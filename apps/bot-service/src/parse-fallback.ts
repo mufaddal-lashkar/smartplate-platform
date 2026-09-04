@@ -3,7 +3,19 @@ export type FallbackParse = {
 	confidence: number
 	entities: Record<string, string>
 	basis: string
+	requiresConfirmation: boolean
 }
+
+const DESTRUCTIVE_INTENTS = new Set([
+	"leftovers.dispositions",
+	"listings.cancel",
+	"listings.no_show",
+	"sessions.revoke",
+	"users.archive",
+	"auth.logout",
+	"market.release",
+	"admin.verification.decide",
+])
 
 const NUMERIC = /(\d+(?:\.\d+)?)\s*(kg|g|l|ml|litre|liter|piece|pieces|plate|plates|portions?)?/i
 const DATE = /\b(\d{4}-\d{2}-\d{2}|today|tomorrow|yesterday)\b/i
@@ -64,6 +76,7 @@ export const parseFallback = (text: string): FallbackParse => {
 			confidence: 0.6,
 			entities: extract(intent, trimmed),
 			basis: `fallback regex match for '${intent}' over ${trimmed.length} chars`,
+			requiresConfirmation: DESTRUCTIVE_INTENTS.has(intent),
 		}
 	}
 	return {
@@ -71,6 +84,7 @@ export const parseFallback = (text: string): FallbackParse => {
 		confidence: 0.3,
 		entities: {},
 		basis: "no keyword matched in fallback parser",
+		requiresConfirmation: false,
 	}
 }
 

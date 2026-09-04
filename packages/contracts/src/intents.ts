@@ -2,6 +2,27 @@ import type { RoleValue, TenantTypeValue } from "./auth"
 
 export type IntentTier = "core" | "shallow" | "out_of_tier"
 
+export type ParamAdapterKind = "date-range" | "date" | "dish" | "enum" | "unit" | "raw"
+
+export type ParamAdapterSpec = {
+	name: string
+	kind: ParamAdapterKind
+	required: boolean
+	options?: string[]
+}
+
+export const DESTRUCTIVE_CONFIRM_REQUIRED = new Set<string>([
+	"leftovers.dispositions",
+	"listings.cancel",
+	"listings.no_show",
+	"sessions.revoke",
+	"users.archive",
+	"auth.logout",
+	"market.release",
+	"admin.verification.decide",
+	"leftovers.disposition_suggest",
+])
+
 export type IntentSpec = {
 	intent: string
 	tier: IntentTier
@@ -14,6 +35,8 @@ export type IntentSpec = {
 	buttonLabel: string
 	command: string
 	destructive: boolean
+	requiresConfirmation: boolean
+	paramAdapters: ParamAdapterSpec[]
 }
 
 type IntentOverrides = Partial<Omit<IntentSpec, "intent" | "tier" | "tenantTypes" | "roles">>
@@ -31,12 +54,44 @@ const BOTH: TenantTypeValue[] = ["restaurant", "ngo"]
 const RESTAURANT: TenantTypeValue[] = ["restaurant"]
 const NGO: TenantTypeValue[] = ["ngo"]
 
+const dateRange = (name: string, required: boolean): ParamAdapterSpec => ({
+	name,
+	kind: "date-range",
+	required,
+})
+const dateOnly = (name: string, required: boolean): ParamAdapterSpec => ({
+	name,
+	kind: "date",
+	required,
+})
+const dishName = (name: string, required: boolean): ParamAdapterSpec => ({
+	name,
+	kind: "dish",
+	required,
+})
+const unitField = (name: string, required: boolean): ParamAdapterSpec => ({
+	name,
+	kind: "unit",
+	required,
+})
+const enumField = (name: string, required: boolean, options: string[]): ParamAdapterSpec => ({
+	name,
+	kind: "enum",
+	required,
+	options,
+})
+const rawField = (name: string, required: boolean): ParamAdapterSpec => ({
+	name,
+	kind: "raw",
+	required,
+})
+
 const spec = (
 	intent: string,
 	tier: IntentTier,
 	tenantTypes: TenantTypeValue[],
 	roles: RoleValue[],
-	overrides: IntentOverrides,
+	overrides: IntentOverrides & { paramAdapters?: ParamAdapterSpec[] },
 ): IntentSpec => ({
 	intent,
 	tier,
@@ -49,6 +104,8 @@ const spec = (
 	buttonLabel: overrides.buttonLabel ?? "",
 	command: overrides.command ?? "",
 	destructive: overrides.destructive ?? false,
+	requiresConfirmation: DESTRUCTIVE_CONFIRM_REQUIRED.has(intent),
+	paramAdapters: overrides.paramAdapters ?? [],
 })
 
 export const INTENTS: IntentSpec[] = [
@@ -84,15 +141,29 @@ export const INTENTS: IntentSpec[] = [
 	spec("inventory.purchases.create", "core", RESTAURANT, OWNER_STAFF, {
 		requiredEntities: ["ingredient", "qty"],
 		example: "bought 3 kg of basmati rice",
+		paramAdapters: [rawField("ingredient", true), rawField("qty", true), unitField("unit", false)],
 	}),
 	spec("inventory.adjustments.create", "core", RESTAURANT, OWNER_STAFF, {
 		requiredEntities: ["ingredient", "qty"],
 		example: "spilled 2 kg of basmati rice",
+		paramAdapters: [
+			rawField("ingredient", true),
+			rawField("qty", true),
+			unitField("unit", false),
+			rawField("reason", false),
+		],
 	}),
 
 	spec("prep.create", "core", RESTAURANT, OWNER_STAFF, {
 		requiredEntities: ["dish", "qty"],
 		example: "prepped 20 plates of paneer butter masala for lunch",
+		paramAdapters: [
+			dishName("dish", true),
+			rawField("qty", true),
+			unitField("unit", false),
+			enumField("mealPeriod", false, ["lunch", "dinner", "breakfast", "snack"]),
+			dateOnly("serviceDate", false),
+		],
 	}),
 	spec("prep.reuse_pending", "core", RESTAURANT, OWNER, {
 		menuSection: "Kitchen",
@@ -101,6 +172,11 @@ export const INTENTS: IntentSpec[] = [
 	spec("prep.reuse_confirm", "core", RESTAURANT, OWNER, {
 		requiredEntities: ["leftoverId", "reusedQty"],
 		listIntent: "prep.reuse_pending",
+		paramAdapters: [
+			rawField("leftoverId", true),
+			rawField("reusedQty", true),
+			unitField("unit", false),
+		],
 	}),
 
 	spec("leftovers.list", "core", RESTAURANT, OWNER_STAFF, {
@@ -111,14 +187,22 @@ export const INTENTS: IntentSpec[] = [
 	spec("leftovers.record", "core", RESTAURANT, OWNER_STAFF, {
 		requiredEntities: ["dish", "qty"],
 		example: "leftover 4 plates of paneer butter masala",
+		paramAdapters: [
+			dishName("dish", true),
+			rawField("qty", true),
+			unitField("unit", false),
+			enumField("storage", false, ["room_temp", "refrigerated", "frozen"]),
+		],
 	}),
 	spec("leftovers.disposition_suggest", "core", RESTAURANT, OWNER, {
 		requiredEntities: ["leftoverId"],
 		listIntent: "leftovers.list",
+		paramAdapters: [rawField("leftoverId", true)],
 	}),
 	spec("leftovers.dispositions", "core", RESTAURANT, OWNER, {
 		requiredEntities: ["dispositions"],
 		listIntent: "leftovers.list",
+		paramAdapters: [rawField("dispositions", true)],
 	}),
 
 	spec("listings.own", "core", RESTAURANT, OWNER_STAFF, {
@@ -176,22 +260,27 @@ export const INTENTS: IntentSpec[] = [
 		menuSection: "Insights",
 		buttonLabel: "Dashboard",
 		command: "dashboard",
+		paramAdapters: [dateRange("period", false)],
 	}),
 	spec("analytics.waste", "core", RESTAURANT, OWNER, {
 		menuSection: "Insights",
 		buttonLabel: "Waste trend",
+		paramAdapters: [dateRange("period", false)],
 	}),
 	spec("analytics.recovery", "core", RESTAURANT, OWNER, {
 		menuSection: "Insights",
 		buttonLabel: "Recovery trend",
+		paramAdapters: [dateRange("period", false)],
 	}),
 	spec("analytics.dishes", "core", RESTAURANT, OWNER, {
 		menuSection: "Insights",
 		buttonLabel: "Dish performance",
+		paramAdapters: [dateRange("period", false)],
 	}),
 	spec("analytics.forecasts", "core", RESTAURANT, OWNER, {
 		menuSection: "Insights",
 		buttonLabel: "Forecasts",
+		paramAdapters: [dateRange("period", false)],
 	}),
 	spec("insights.get", "core", RESTAURANT, OWNER, {
 		menuSection: "Insights",
@@ -202,6 +291,11 @@ export const INTENTS: IntentSpec[] = [
 		menuSection: "Insights",
 		buttonLabel: "Generate report",
 		command: "report",
+		paramAdapters: [
+			enumField("reportType", false, ["waste", "recovery", "dishes", "comprehensive"]),
+			dateRange("period", false),
+			enumField("format", false, ["csv", "pdf", "xlsx"]),
+		],
 	}),
 	spec("reports.list", "core", BOTH, OWNER_ADMIN, {
 		menuSection: "Insights",
@@ -364,6 +458,21 @@ export const menuSections = (role: RoleValue, tenantType: TenantTypeValue): Menu
 }
 
 export const commandIntents = (): IntentSpec[] => INTENTS.filter((entry) => entry.command !== "")
+
+export const adaptersForIntent = (intent: string): ParamAdapterSpec[] => {
+	const spec = BY_NAME.get(intent)
+	return spec == null ? [] : spec.paramAdapters
+}
+
+export const isDestructiveIntent = (intent: string): boolean => {
+	const spec = BY_NAME.get(intent)
+	return spec?.destructive === true
+}
+
+export const isConfirmationRequired = (intent: string): boolean => {
+	const spec = BY_NAME.get(intent)
+	return spec?.requiresConfirmation === true
+}
 
 export const WORKED_EXAMPLE_INTENTS: string[] = [
 	"prep.create",

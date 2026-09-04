@@ -68,10 +68,9 @@ def test_browse_intent_for_ngo():
 
 import re
 from pathlib import Path
-
-import pytest
 from typing import get_args
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app

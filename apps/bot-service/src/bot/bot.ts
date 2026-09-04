@@ -3,6 +3,7 @@ import { Bot, type Context } from "grammy"
 import type { UserFromGetMe } from "grammy/types"
 import { config } from "../config"
 import { logger } from "../logger"
+import { planDispatch } from "../orchestrator"
 import { callCallback } from "./callback"
 import { callCancel } from "./commands/cancel"
 import { callHelp } from "./commands/help"
@@ -36,7 +37,7 @@ export const createBot = (botInfo: UserFromGetMe | null = null): Bot<BotContext>
 		})
 	}
 
-	bot.on("message:text", dispatch)
+	bot.on("message:text", config.orchestratorEnabled ? planDispatch : dispatch)
 	bot.on("callback_query:data", callCallback)
 
 	bot.catch((error) => {

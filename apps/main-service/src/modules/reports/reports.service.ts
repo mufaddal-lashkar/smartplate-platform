@@ -1,6 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto"
 import { mkdir, rename } from "node:fs/promises"
 import { join, resolve as resolvePath, sep } from "node:path"
+import dayjs from "dayjs"
 import type { SessionContext } from "../../db/tx"
 import { ApiError } from "../../shared/api-error"
 import { systemClock } from "../../shared/clock"
@@ -63,10 +64,12 @@ const kpiEmphasis = (value: number, goodIsHigh: boolean): "good" | "warning" | "
 const reportTitleFor = (type: ReportRecord["reportType"]): string => {
 	if (type === "waste") return "Waste report"
 	if (type === "recovery") return "Recovery report"
-	return "Per-dish recovery report"
+	if (type === "dishes") return "Per-dish recovery report"
+	return "Comprehensive report"
 }
 
 const buildKpis = (type: ReportRecord["reportType"], dashboard: Dashboard): ReportKpi[] => {
+	if (type === "comprehensive") return buildComprehensiveKpis(dashboard)
 	if (type === "waste") {
 		return [
 			{
@@ -187,11 +190,119 @@ const buildKpis = (type: ReportRecord["reportType"], dashboard: Dashboard): Repo
 	]
 }
 
+const buildComprehensiveKpis = (dashboard: Dashboard): ReportKpi[] => [
+	{
+		label: "Waste rate",
+		value: fmtPct(dashboard.wasteRate),
+		hint: "Of all prepared food in the period",
+		emphasis: kpiEmphasis(dashboard.wasteRate, false),
+	},
+	{
+		label: "Recovery rate",
+		value: fmtPct(dashboard.recoveryRate),
+		hint: "Of surplus food kept out of waste",
+		emphasis: kpiEmphasis(dashboard.recoveryRate, true),
+	},
+	{
+		label: "Surplus rate",
+		value: fmtPct(dashboard.surplusRate),
+		hint: "Prepared food that became surplus",
+		emphasis: "primary",
+	},
+	{
+		label: "kg diverted",
+		value: fmtKg(dashboard.kgDiverted),
+		hint: "Reused + sold + donated",
+		emphasis: "good",
+	},
+	{
+		label: "Value recovered",
+		value: fmtInr(dashboard.valueRecovered),
+		hint: "Reused value + B2B proceeds",
+		emphasis: "good",
+	},
+	{
+		label: "Loss avoided",
+		value: fmtInr(dashboard.lossAvoided),
+		hint: "Value that would have been wasted",
+		emphasis: "good",
+	},
+	{
+		label: "Open listings",
+		value: dashboard.openListings.toString(),
+		hint: "Surplus currently offered to NGOs",
+		emphasis: dashboard.openListings > 0 ? "primary" : "good",
+	},
+	{
+		label: "Pending leftovers",
+		value: fmtKg(dashboard.pendingLeftovers),
+		hint: "Awaiting a recovery decision",
+		emphasis: dashboard.pendingLeftovers > 0 ? "warning" : "good",
+	},
+]
+
+const buildNarrative = (
+	period: { from: string; to: string },
+	dashboard: Dashboard,
+	daysInRange: number,
+): string[] => {
+	const lines: string[] = []
+	lines.push(
+		`Over the last ${daysInRange} day${daysInRange === 1 ? "" : "s"} (${period.from} to ${period.to}), the kitchen diverted ${fmtKg(dashboard.kgDiverted)} of surplus from waste and recovered ${fmtInr(dashboard.valueRecovered)} in value.`,
+	)
+	lines.push(
+		`Overall waste rate was ${fmtPct(dashboard.wasteRate)} of prepared food, with a recovery rate of ${fmtPct(dashboard.recoveryRate)} of surplus diverted away from bins.`,
+	)
+	if (dashboard.pendingLeftovers > 0) {
+		lines.push(
+			`There are ${fmtKg(dashboard.pendingLeftovers)} of leftovers still awaiting a recovery decision - consider listing them on the marketplace to avoid further loss.`,
+		)
+	} else {
+		lines.push("No leftovers are currently awaiting a recovery decision.")
+	}
+	if (dashboard.openListings > 0) {
+		lines.push(
+			`${dashboard.openListings} surplus listing${dashboard.openListings === 1 ? " is" : "s are"} currently open to NGOs.`,
+		)
+	}
+	return lines
+}
+
+const daysInRange = (from: string, to: string): number => {
+	const start = dayjs(`${from}T00:00:00Z`)
+	const end = dayjs(`${to}T00:00:00Z`)
+	if (!start.isValid() || !end.isValid()) return 0
+	const diff = end.diff(start, "day") + 1
+	return diff > 0 ? diff : 0
+}
+
 const buildChart = async (
 	ctx: SessionContext,
 	type: ReportRecord["reportType"],
 	range: { from: string; to: string },
 ): Promise<ReportDocument["chart"]> => {
+	if (type === "comprehensive") {
+		const [{ series: wasteSeries }, { series: recoverySeries }] = await Promise.all([
+			getWaste(ctx, range, "day"),
+			getRecovery(ctx, range, "day"),
+		])
+		const recoveryByBucket = new Map(recoverySeries.map((row) => [row.bucket, row]))
+		const points: ReportChartPoint[] = wasteSeries.map((row) => {
+			const r = recoveryByBucket.get(row.bucket)
+			const recovered = r?.totalRecoveredKg ?? 0
+			return {
+				label: row.bucket,
+				primary: Number(row.surplusKg.toFixed(3)),
+				secondary: Number(recovered.toFixed(3)),
+			}
+		})
+		return {
+			title: "Daily surplus vs recovery (kg)",
+			primaryLabel: "Surplus (kg)",
+			secondaryLabel: "Recovered (kg)",
+			points,
+		}
+	}
 	if (type === "waste") {
 		const { series } = await getWaste(ctx, range, "day")
 		const points: ReportChartPoint[] = series.map((row) => ({
@@ -271,6 +382,7 @@ const buildReportDocument = async (
 			contactPhone: restaurant?.contactPhone ?? "",
 		},
 		requester: rc.requester,
+		narrative: buildNarrative(range, dashboard, daysInRange(range.from, range.to)),
 		kpis: buildKpis(report.reportType, dashboard),
 		chart,
 		table,

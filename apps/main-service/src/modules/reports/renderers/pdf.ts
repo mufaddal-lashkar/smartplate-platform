@@ -28,7 +28,7 @@ const COLOR_CHART_GREEN = c(0x1baf7a)
 const COLOR_CHART_ORANGE = c(0xeb6834)
 const COLOR_TICK_GRID = c(0xe3eae7)
 
-export type ReportType = "waste" | "recovery" | "dishes"
+export type ReportType = "waste" | "recovery" | "dishes" | "comprehensive"
 
 export type ReportOrg = {
 	tenantName: string
@@ -70,6 +70,7 @@ export type ReportDocument = {
 	generatedAt: string
 	org: ReportOrg
 	requester: ReportRequester
+	narrative: string[]
 	kpis: ReportKpi[]
 	chart: {
 		title: string
@@ -98,7 +99,8 @@ const formatPeriod = (from: string, to: string): string => {
 const reportSubtitle = (type: ReportType): string => {
 	if (type === "waste") return "Surplus and waste performance"
 	if (type === "recovery") return "Recovery channels and avoided emissions"
-	return "Per-dish recovery breakdown"
+	if (type === "dishes") return "Per-dish recovery breakdown"
+	return "Complete operational overview"
 }
 
 const reportAudience = (role: string): string => {
@@ -128,6 +130,7 @@ export const renderPdf = async (title: string, table: CsvTable): Promise<Uint8Ar
 			contactPhone: "",
 		},
 		requester: { name: "", email: "", role: "" },
+		narrative: [],
 		kpis: [],
 		chart: { title: "", primaryLabel: "", secondaryLabel: "", points: [] },
 		table,
@@ -164,6 +167,7 @@ export const renderReportPdf = async (doc: ReportDocument): Promise<Uint8Array> 
 	pages.push(summary)
 	let summaryY = CONTENT_TOP
 	summaryY = drawSummaryHeader(summary, doc, fontRegular, fontBold, summaryY)
+	summaryY = drawNarrative(summary, doc, fontRegular, fontBold, summaryY)
 	summaryY = drawKpiGrid(summary, doc, fontRegular, fontBold, summaryY)
 	summaryY = drawChart(summary, doc, fontRegular, fontBold, summaryY)
 
@@ -488,6 +492,61 @@ const drawSummaryHeader = (
 		{ x: MARGIN_LEFT, y, size: 10.5, font, color: COLOR_MUTED },
 	)
 	return y - 22
+}
+
+const drawNarrative = (
+	page: PDFPage,
+	doc: ReportDocument,
+	font: PDFFont,
+	bold: PDFFont,
+	y: number,
+): number => {
+	if (doc.narrative.length === 0) return y
+	y -= 6
+	page.drawText("Highlights", {
+		x: MARGIN_LEFT,
+		y,
+		size: 12,
+		font: bold,
+		color: COLOR_PRIMARY,
+	})
+	y -= 16
+	for (const line of doc.narrative) {
+		const wrapped = wrapText(line, 92)
+		for (const part of wrapped) {
+			page.drawText(part, {
+				x: MARGIN_LEFT,
+				y,
+				size: 10.5,
+				font,
+				color: COLOR_FOREGROUND,
+			})
+			y -= 14
+		}
+		y -= 4
+	}
+	return y - 6
+}
+
+const wrapText = (text: string, maxChars: number): string[] => {
+	if (text.length <= maxChars) return [text]
+	const words = text.split(/\s+/)
+	const lines: string[] = []
+	let line = ""
+	for (const word of words) {
+		if (line === "") {
+			line = word
+			continue
+		}
+		if (`${line} ${word}`.length <= maxChars) {
+			line = `${line} ${word}`
+		} else {
+			lines.push(line)
+			line = word
+		}
+	}
+	if (line !== "") lines.push(line)
+	return lines
 }
 
 const drawKpiGrid = (

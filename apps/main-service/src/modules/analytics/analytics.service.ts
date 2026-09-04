@@ -193,7 +193,7 @@ export type ReportTable = {
 
 export const buildReportTable = async (
 	ctx: SessionContext,
-	reportType: "waste" | "recovery" | "dishes",
+	reportType: "waste" | "recovery" | "dishes" | "comprehensive",
 	range: DateRange,
 ): Promise<ReportTable> => {
 	if (reportType === "waste") {
@@ -236,32 +236,86 @@ export const buildReportTable = async (
 			]),
 		}
 	}
-	const { dishes } = await getDishes(ctx, range)
+	if (reportType === "dishes") {
+		const { dishes } = await getDishes(ctx, range)
+		return {
+			title: "Per-dish recovery report",
+			headers: [
+				"Dish",
+				"Prepared (kg)",
+				"Leftover (kg)",
+				"Reused (kg)",
+				"Sold (kg)",
+				"Donated (kg)",
+				"Wasted (kg)",
+				"Recovery rate",
+				"kgCO2e avoided",
+				"Method",
+			],
+			rows: dishes.map((row) => [
+				row.name,
+				row.preparedKg.toFixed(3),
+				row.leftoverKg.toFixed(3),
+				row.reusedKg.toFixed(3),
+				row.soldKg.toFixed(3),
+				row.donatedKg.toFixed(3),
+				row.wastedKg.toFixed(3),
+				row.recoveryRate.toFixed(4),
+				row.kgCo2eAvoided.toFixed(3),
+				row.kgCo2eAvoidedMethod,
+			]),
+		}
+	}
+	const [{ series: wasteSeries }, { series: recoverySeries }] = await Promise.all([
+		getWaste(ctx, range, "day"),
+		getRecovery(ctx, range, "day"),
+	])
+	const byBucket = new Map<string, string[]>()
+	for (const row of wasteSeries) {
+		byBucket.set(row.bucket, [
+			row.bucket,
+			row.surplusKg.toFixed(3),
+			row.wasteKg.toFixed(3),
+			"",
+			"",
+			"",
+			"",
+			row.kgCo2eAvoided.toFixed(3),
+		])
+	}
+	for (const row of recoverySeries) {
+		const existing = byBucket.get(row.bucket)
+		if (existing) {
+			existing[3] = row.reusedKg.toFixed(3)
+			existing[4] = row.soldKg.toFixed(3)
+			existing[5] = row.donatedKg.toFixed(3)
+			existing[6] = row.totalRecoveredKg.toFixed(3)
+		} else {
+			byBucket.set(row.bucket, [
+				row.bucket,
+				"0.000",
+				"0.000",
+				row.reusedKg.toFixed(3),
+				row.soldKg.toFixed(3),
+				row.donatedKg.toFixed(3),
+				row.totalRecoveredKg.toFixed(3),
+				row.kgCo2eAvoided.toFixed(3),
+			])
+		}
+	}
+	const dailyRows = [...byBucket.values()].sort((a, b) => (a[0] ?? "").localeCompare(b[0] ?? ""))
 	return {
-		title: "Per-dish recovery report",
+		title: "Comprehensive report",
 		headers: [
-			"Dish",
-			"Prepared (kg)",
-			"Leftover (kg)",
+			"Day",
+			"Surplus (kg)",
+			"Waste (kg)",
 			"Reused (kg)",
 			"Sold (kg)",
 			"Donated (kg)",
-			"Wasted (kg)",
-			"Recovery rate",
+			"Recovered (kg)",
 			"kgCO2e avoided",
-			"Method",
 		],
-		rows: dishes.map((row) => [
-			row.name,
-			row.preparedKg.toFixed(3),
-			row.leftoverKg.toFixed(3),
-			row.reusedKg.toFixed(3),
-			row.soldKg.toFixed(3),
-			row.donatedKg.toFixed(3),
-			row.wastedKg.toFixed(3),
-			row.recoveryRate.toFixed(4),
-			row.kgCo2eAvoided.toFixed(3),
-			row.kgCo2eAvoidedMethod,
-		]),
+		rows: dailyRows,
 	}
 }

@@ -14,7 +14,7 @@ const LIST_LIMIT = 10
 
 export type ReportRecord = {
 	id: string
-	reportType: "waste" | "recovery" | "dishes"
+	reportType: "waste" | "recovery" | "dishes" | "comprehensive"
 	periodStart: string
 	periodEnd: string
 	format: "csv" | "pdf" | "xlsx"
@@ -39,17 +39,27 @@ export const readReportChat = async (reportId: string): Promise<number> => {
 	return Number.isFinite(parsed) ? parsed : 0
 }
 
+const daysInRange = (from: string, to: string): number => {
+	const start = dayjs(`${from}T00:00:00Z`)
+	const end = dayjs(`${to}T00:00:00Z`)
+	if (!start.isValid() || !end.isValid()) return 0
+	const diff = end.diff(start, "day") + 1
+	return diff > 0 ? diff : 0
+}
+
 export const documentFor = async (
 	chatId: number,
 	report: ReportRecord,
 ): Promise<Extract<Reply, { kind: "document" }>> => {
 	const bytes = await callMainBinary(chatId, `/v1/reports/${report.id}/download`)
+	const days = daysInRange(report.periodStart, report.periodEnd)
+	const daysLabel = days > 0 ? `${days}-days` : report.periodStart
 	return {
 		kind: "document",
-		filename: `smartplate-${report.reportType}-${report.periodStart}.${report.format}`,
+		filename: `smartplate-${report.reportType}-${daysLabel}-${report.periodStart}.${report.format}`,
 		bytes,
 		mimeType: MIME[report.format] ?? "application/octet-stream",
-		caption: `${report.reportType} report · ${report.periodStart} to ${report.periodEnd}`,
+		caption: `${report.reportType} report · ${report.periodStart} to ${report.periodEnd} (${days} day${days === 1 ? "" : "s"})`,
 	}
 }
 

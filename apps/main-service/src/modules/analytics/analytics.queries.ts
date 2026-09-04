@@ -86,6 +86,85 @@ export type Forecast = {
 
 const toNumber = (value: string | null): number => (value == null ? 0 : Number(value))
 
+const pad2 = (value: number): string => (value < 10 ? `0${value}` : String(value))
+
+const eachDay = (from: string, to: string): string[] => {
+	const start = new Date(`${from}T00:00:00Z`)
+	const end = new Date(`${to}T00:00:00Z`)
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [from, to]
+	if (start.getTime() > end.getTime()) return []
+	const out: string[] = []
+	for (let t = start.getTime(); t <= end.getTime(); t += 86_400_000) {
+		const d = new Date(t)
+		out.push(`${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`)
+	}
+	return out
+}
+
+const eachWeek = (from: string, to: string): string[] => {
+	const start = new Date(`${from}T00:00:00Z`)
+	const end = new Date(`${to}T00:00:00Z`)
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+	if (start.getTime() > end.getTime()) return []
+	const out: string[] = []
+	const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()))
+	const day = cursor.getUTCDay()
+	cursor.setUTCDate(cursor.getUTCDate() - day)
+	while (cursor.getTime() <= end.getTime()) {
+		out.push(
+			`${cursor.getUTCFullYear()}-${pad2(cursor.getUTCMonth() + 1)}-${pad2(cursor.getUTCDate())}`,
+		)
+		cursor.setUTCDate(cursor.getUTCDate() + 7)
+	}
+	return out
+}
+
+const eachMonth = (from: string, to: string): string[] => {
+	const start = new Date(`${from}T00:00:00Z`)
+	const end = new Date(`${to}T00:00:00Z`)
+	if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+	if (start.getTime() > end.getTime()) return []
+	const out: string[] = []
+	const startMonth = start.getUTCMonth() + 1
+	const startYear = start.getUTCFullYear()
+	const endMonth = end.getUTCMonth() + 1
+	const endYear = end.getUTCFullYear()
+	for (let y = startYear; y <= endYear; y += 1) {
+		const m0 = y === startYear ? startMonth : 1
+		const m1 = y === endYear ? endMonth : 12
+		for (let m = m0; m <= m1; m += 1) {
+			out.push(`${y}-${pad2(m)}-01`)
+		}
+	}
+	return out
+}
+
+export const zeroFillBuckets = <T extends { bucket: string }>(
+	rows: T[],
+	range: DateRange,
+	grain: DateGrain,
+): T[] => {
+	const byKey = new Map(rows.map((row) => [row.bucket, row]))
+	const keys =
+		grain === "day"
+			? eachDay(range.from, range.to)
+			: grain === "week"
+				? eachWeek(range.from, range.to)
+				: eachMonth(range.from, range.to)
+	if (keys.length === 0) {
+		return [...rows].sort((a, b) => a.bucket.localeCompare(b.bucket))
+	}
+	const template = rows[0]
+	if (!template) {
+		return keys.map((bucket) => ({ bucket }) as T)
+	}
+	return keys.map((bucket) => {
+		const hit = byKey.get(bucket)
+		if (hit) return hit
+		return { ...template, bucket }
+	})
+}
+
 const inRange = (
 	column: typeof prepEntries.serviceDate | typeof leftovers.serviceDate,
 	range: DateRange,
@@ -330,20 +409,13 @@ export const loadWasteSeries = async (
 	range: DateRange,
 	grain: DateGrain,
 ): Promise<WasteBucket[]> => {
-	const [prepared, outcomes] = await Promise.all([
-		loadPreparedKgSeries(ctx, range, grain),
-		loadOutcomeSeries(ctx, range, grain),
-	])
-	const prepMap = new Map(prepared.map((p) => [p.bucket, p.preparedKg]))
-	const outMap = new Map(outcomes.map((o) => [o.bucket, o]))
-	const allBuckets = new Set<string>([...prepMap.keys(), ...outMap.keys()])
-	const sorted = [...allBuckets].sort()
-	return sorted.map((bucket) => {
-		const out = outMap.get(bucket)
-		const leftover = out?.leftoverKg ?? 0
-		const binned = out?.binnedKg ?? 0
+	const outcomes = await loadOutcomeSeries(ctx, range, grain)
+	const filled = zeroFillBuckets(outcomes, range, grain)
+	return filled.map((row) => {
+		const leftover = row.leftoverKg
+		const binned = row.binnedKg
 		const surplus = Math.max(0, leftover - binned)
-		return { bucket, surplusKg: roundKg(surplus), wasteKg: roundKg(binned) }
+		return { bucket: row.bucket, surplusKg: roundKg(surplus), wasteKg: roundKg(binned) }
 	})
 }
 
@@ -353,7 +425,8 @@ export const loadRecoverySeries = async (
 	grain: DateGrain,
 ): Promise<RecoveryBucket[]> => {
 	const outcomes = await loadOutcomeSeries(ctx, range, grain)
-	return outcomes.map((row) => {
+	const filled = zeroFillBuckets(outcomes, range, grain)
+	return filled.map((row) => {
 		const totalRecovered = row.reusedKg + row.soldKg + row.donatedKg
 		const recoveryRate = row.leftoverKg > 0 ? roundRatio(totalRecovered / row.leftoverKg) : 0
 		return {
