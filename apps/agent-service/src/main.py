@@ -12,8 +12,9 @@ app = FastAPI(
     version="0.1.0",
     description=(
         "Stateless AI compute. No database, no Redis, no disk state, no published port. "
-        "Receives pushed feature payloads and returns structured insight. "
-        "Calls Gemini and nothing else."
+        "Calls Gemini and one read-only main-service target as LangGraph tool "
+        "implementations. All caching, fallback, retry scheduling, and persistence "
+        "live in the worker."
     ),
 )
 
@@ -41,4 +42,7 @@ def health() -> dict:
         "status": "ok",
         "gemini_configured": bool(settings.gemini_api_key),
         "model": settings.gemini_model,
+        "graph_enabled": settings.plan_intent_graph_enabled,
+        "max_tool_calls": settings.plan_intent_max_tool_calls,
+        "timeout_seconds": settings.plan_intent_timeout_seconds,
     }
