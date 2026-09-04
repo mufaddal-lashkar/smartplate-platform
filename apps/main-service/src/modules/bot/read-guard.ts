@@ -18,10 +18,7 @@ const resolveTenantType = async (tenantId: string): Promise<SessionContext["tena
 	return row.type
 }
 
-const buildSession = async (
-	tenantHeader: string,
-	userHeader: string,
-): Promise<SessionContext> => {
+const buildSession = async (tenantHeader: string, userHeader: string): Promise<SessionContext> => {
 	if (tenantHeader === "") {
 		throw new ApiError(
 			"AUTH_FORBIDDEN",
