@@ -110,3 +110,20 @@ export const requireTenantType = (session: SessionContext, expected: TenantType)
 		throw new ApiError("TENANT_TYPE_MISMATCH", "This action is not available for your account.")
 	}
 }
+
+const READ_ONLY_PATHS: ReadonlySet<string> = new Set<string>([
+	"/v1/dishes",
+	"/v1/ingredients",
+	"/v1/leftovers",
+	"/v1/leftovers/",
+	"/v1/listings",
+	"/v1/sessions",
+	"/v1/sessions/",
+	"/v1/inventory/stock",
+])
+
+export const isReadOnlyPath = (path: string): boolean => {
+	const clean = (path.split("?")[0] ?? path).replace(/\/+$/, "")
+	const normalised = clean === "" ? "/" : clean
+	return READ_ONLY_PATHS.has(clean) || READ_ONLY_PATHS.has(normalised)
+}
