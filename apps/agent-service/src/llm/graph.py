@@ -4,8 +4,7 @@ import logging
 import time
 from pathlib import Path
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langgraph.prebuilt import ToolNode
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.llm.provider import LLMProvider
 from src.schemas.plan_intent import PlanIntentRequest, PlanIntentResponse, PlanStep
@@ -176,7 +175,7 @@ async def run_graph(
     bound = provider.bind_tools(tools)
     messages: list = list(initial_messages)
     tools_called = 0
-    tool_node = ToolNode(tools, handle_tool_errors=True)
+    tools_by_name: dict[str, object] = {t.name: t for t in tools}
 
     while True:
         if time.monotonic() - started > timeout_seconds:
@@ -206,8 +205,29 @@ async def run_graph(
         tool_calls = getattr(response, "tool_calls", None) or []
         if not tool_calls:
             return None
-        tool_result = await asyncio.to_thread(tool_node.invoke, {"messages": messages})
-        new_tool_messages = tool_result.get("messages", [])
+        new_tool_messages: list[ToolMessage] = []
+        for call in tool_calls:
+            name = str(call.get("name", ""))
+            args = call.get("args", {}) or {}
+            call_id = str(call.get("id", ""))
+            tool_obj = tools_by_name.get(name)
+            if tool_obj is None:
+                logger.warning(
+                    "graph tool not found",
+                    extra={"request_id": request.request_id, "tool": name},
+                )
+                return None
+            try:
+                output = await tool_obj.ainvoke(args)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "graph tool call failed",
+                    extra={"request_id": request.request_id, "tool": name, "error": str(exc)},
+                )
+                output = f"tool error: {exc}"
+            new_tool_messages.append(
+                ToolMessage(content=str(output), tool_call_id=call_id, name=name)
+            )
         messages = [*messages, *new_tool_messages]
         tools_called += len(new_tool_messages)
         if tools_called >= max_tool_calls:
