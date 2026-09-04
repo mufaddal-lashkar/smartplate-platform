@@ -6,6 +6,7 @@ from pathlib import Path
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
+from src.llm.plan_intent_fallback import DESTRUCTIVE_INTENTS, _coerce_params
 from src.llm.provider import LLMProvider
 from src.schemas.plan_intent import PlanIntentRequest, PlanIntentResponse, PlanStep
 
@@ -83,19 +84,6 @@ INTENT_ENUM = frozenset(
     }
 )
 
-DESTRUCTIVE_INTENTS = frozenset(
-    {
-        "leftovers.dispositions",
-        "listings.cancel",
-        "listings.no_show",
-        "sessions.revoke",
-        "users.archive",
-        "auth.logout",
-        "market.release",
-        "admin.verification.decide",
-    }
-)
-
 
 def _prompt_text() -> str:
     return (PROMPT_DIR / f"{PROMPT_VERSION}.md").read_text(encoding="utf-8")
@@ -121,18 +109,6 @@ def _has_plan_payload(message: AIMessage) -> bool:
     return isinstance(parsed, dict) and "plan" in parsed
 
 
-def _coerce_params(values: dict) -> dict[str, str | float | int | bool]:
-    coerced: dict[str, str | float | int | bool] = {}
-    for key, value in values.items():
-        if isinstance(value, (bool, int, float, str)):
-            coerced[key] = value
-        elif isinstance(value, (list, dict)):
-            coerced[key] = json.dumps(value)
-        else:
-            coerced[key] = str(value)
-    return coerced
-
-
 def _plan_from_ai_message(message: AIMessage, _request: PlanIntentRequest) -> PlanIntentResponse:
     raw = json.loads(message.content)  # type: ignore[arg-type]
     plan_steps: list[PlanStep] = []
@@ -140,12 +116,14 @@ def _plan_from_ai_message(message: AIMessage, _request: PlanIntentRequest) -> Pl
         intent = str(step.get("intent", ""))
         if intent not in INTENT_ENUM:
             continue
+        llm_confirmation = bool(step.get("requires_confirmation", False))
+        forced = intent in DESTRUCTIVE_INTENTS
         plan_steps.append(
             PlanStep(
                 intent=intent,  # type: ignore[arg-type]
                 params=_coerce_params(step.get("params") or {}),
                 rationale=str(step.get("rationale", "")),
-                requires_confirmation=bool(step.get("requires_confirmation", False)),
+                requires_confirmation=forced or llm_confirmation,
             )
         )
     return PlanIntentResponse(
