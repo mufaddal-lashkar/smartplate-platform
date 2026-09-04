@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const reportTypeSchema = z.enum(["waste", "recovery", "dishes"])
+export const reportTypeSchema = z.enum(["waste", "recovery", "dishes", "comprehensive"])
 export type ReportType = z.infer<typeof reportTypeSchema>
 
 export const reportFormatSchema = z.enum(["csv", "pdf", "xlsx"])

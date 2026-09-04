@@ -15,6 +15,17 @@ const DATE_RANGE_VOCAB = new Set([
 	"last-month",
 ])
 
+const LAST_N_DAYS_PATTERN = /^last-(\d+)-days$/
+
+const isLastNDays = (value: string): boolean => LAST_N_DAYS_PATTERN.test(value)
+
+const lastNDaysCount = (value: string): number => {
+	const match = LAST_N_DAYS_PATTERN.exec(value)
+	if (!match) return 0
+	const n = Number.parseInt(match[1] ?? "", 10)
+	return Number.isFinite(n) && n > 0 ? n : 0
+}
+
 const UNIT_NORMALISATION: Record<string, string> = {
 	plates: "plate",
 	plate: "plate",
@@ -60,6 +71,10 @@ const resolveDateRange = (symbolic: string, now: Dayjs): { from: string; to: str
 		const [a = "", b = ""] = symbolic.split("..")
 		return { from: a, to: b }
 	}
+	if (isLastNDays(symbolic)) {
+		const n = lastNDaysCount(symbolic)
+		return { from: now.subtract(n - 1, "day").format("YYYY-MM-DD"), to: today }
+	}
 	switch (symbolic) {
 		case "today":
 			return { from: today, to: today }
@@ -89,7 +104,7 @@ const resolveDateRange = (symbolic: string, now: Dayjs): { from: string; to: str
 
 const resolveDate = (symbolic: string, now: Dayjs): string => {
 	const today = now.format("YYYY-MM-DD")
-	if (DATE_RANGE_VOCAB.has(symbolic) || symbolic.includes("..")) {
+	if (DATE_RANGE_VOCAB.has(symbolic) || isLastNDays(symbolic) || symbolic.includes("..")) {
 		return resolveDateRange(symbolic, now).from
 	}
 	if (/^\d{4}-\d{2}-\d{2}$/.test(symbolic)) return symbolic
@@ -141,7 +156,11 @@ export const resolveParams = async (
 		const stringValue = String(raw)
 		switch (adapter.kind) {
 			case "date-range": {
-				if (!DATE_RANGE_VOCAB.has(stringValue) && !stringValue.includes("..")) {
+				if (
+					!DATE_RANGE_VOCAB.has(stringValue) &&
+					!isLastNDays(stringValue) &&
+					!stringValue.includes("..")
+				) {
 					throw new Error(
 						`date-range param '${adapter.name}' must use the closed vocabulary, got '${stringValue}'`,
 					)
@@ -159,7 +178,11 @@ export const resolveParams = async (
 				break
 			}
 			case "date": {
-				if (!DATE_RANGE_VOCAB.has(stringValue) && !stringValue.includes("..")) {
+				if (
+					!DATE_RANGE_VOCAB.has(stringValue) &&
+					!isLastNDays(stringValue) &&
+					!stringValue.includes("..")
+				) {
 					if (!/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
 						throw new Error(
 							`date param '${adapter.name}' must be ISO YYYY-MM-DD or a vocabulary word, got '${stringValue}'`,
@@ -218,4 +241,7 @@ export const findFirstMissing = (intent: string, params: ResolvedParams): string
 export const resolveSingleDate = resolveDate
 export const resolveSingleDateRange = resolveDateRange
 export const validateRangeVocab = (value: string): boolean =>
-	DATE_RANGE_VOCAB.has(value) || value.includes("..") || /^\d{4}-\d{2}-\d{2}$/.test(value)
+	DATE_RANGE_VOCAB.has(value) ||
+	isLastNDays(value) ||
+	value.includes("..") ||
+	/^\d{4}-\d{2}-\d{2}$/.test(value)

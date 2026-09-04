@@ -292,7 +292,7 @@ export const INTENTS: IntentSpec[] = [
 		buttonLabel: "Generate report",
 		command: "report",
 		paramAdapters: [
-			enumField("reportType", false, ["waste", "recovery", "dishes"]),
+			enumField("reportType", false, ["waste", "recovery", "dishes", "comprehensive"]),
 			dateRange("period", false),
 			enumField("format", false, ["csv", "pdf", "xlsx"]),
 		],
