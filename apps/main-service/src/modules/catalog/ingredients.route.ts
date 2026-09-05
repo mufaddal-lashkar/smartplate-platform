@@ -3,6 +3,7 @@ import { Elysia } from "elysia"
 import type { Ingredient } from "../../db/schema"
 import { requirePermission } from "../../shared/rbac"
 import { requireSession, sessionPlugin } from "../../shared/session.plugin"
+import { requireReadOnlyServiceToken } from "../bot/read-guard"
 import { ingredientInputSchema } from "./ingredients.schema"
 import {
 	createIngredient,
@@ -13,6 +14,7 @@ import {
 
 export const ingredientsRoute = new Elysia()
 	.use(sessionPlugin)
+	.use(requireReadOnlyServiceToken)
 	.get("/v1/ingredients", async ({ session }): Promise<Collection<Ingredient>> => {
 		const active = requireSession(session)
 		await requirePermission(active, "inventory.read")

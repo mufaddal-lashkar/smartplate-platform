@@ -2,6 +2,7 @@ import { Elysia } from "elysia"
 import { systemClock } from "../../shared/clock"
 import { requirePermission, requireTenantType } from "../../shared/rbac"
 import { requireSession, sessionPlugin } from "../../shared/session.plugin"
+import { requireReadOnlyServiceToken } from "../bot/read-guard"
 import {
 	commitDispositionsSchema,
 	listLeftoversQuerySchema,
@@ -16,6 +17,7 @@ import {
 
 export const leftoversRoute = new Elysia({ prefix: "/v1/leftovers" })
 	.use(sessionPlugin)
+	.use(requireReadOnlyServiceToken)
 	.get("/", async ({ session, query }) => {
 		const active = requireSession(session)
 		requireTenantType(active, "restaurant")

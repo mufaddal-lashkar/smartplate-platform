@@ -1,10 +1,12 @@
 import { Elysia } from "elysia"
 import { ApiError } from "../../shared/api-error"
 import { requireSession, sessionPlugin } from "../../shared/session.plugin"
+import { requireReadOnlyServiceToken } from "../bot/read-guard"
 import { findActiveSessionsForUser, revokeFamily } from "./auth.service"
 
 export const sessionsRoute = new Elysia({ prefix: "/v1/sessions" })
 	.use(sessionPlugin)
+	.use(requireReadOnlyServiceToken)
 	.get("/", async ({ session }) => {
 		const active = requireSession(session)
 		const list = await findActiveSessionsForUser(active.userId)

@@ -5,6 +5,7 @@ import { systemClock } from "../../shared/clock"
 import { readIdempotent, requireIdempotencyKey, writeIdempotent } from "../../shared/idempotency"
 import { requirePermission } from "../../shared/rbac"
 import { requireSession, sessionPlugin } from "../../shared/session.plugin"
+import { requireReadOnlyServiceToken } from "../bot/read-guard"
 import type { ExpiringLot, StockAggregate } from "./inventory.queries"
 import { adjustmentInputSchema, purchaseInputSchema } from "./inventory.schema"
 import {
@@ -24,6 +25,7 @@ const wrapIdempotent = <T>(response: T, hit: boolean): IdempotencyEnvelope<T> =>
 
 export const inventoryRoute = new Elysia()
 	.use(sessionPlugin)
+	.use(requireReadOnlyServiceToken)
 	.get("/v1/inventory/stock", async ({ session }): Promise<Collection<StockAggregate>> => {
 		const active = requireSession(session)
 		await requirePermission(active, "inventory.read")
